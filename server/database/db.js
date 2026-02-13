@@ -4,6 +4,7 @@ import fs from 'fs';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { runNovelMigrations } from './migrate.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -89,6 +90,8 @@ const initializeDatabase = async () => {
     db.exec(initSQL);
     console.log('Database initialized successfully');
     runMigrations();
+    // Run Novel Platform migrations
+    runNovelMigrations(db);
   } catch (error) {
     console.error('Error initializing database:', error.message);
     throw error;

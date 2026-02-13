@@ -62,6 +62,10 @@ import codexRoutes from './routes/codex.js';
 import { initializeDatabase } from './database/db.js';
 import { validateApiKey, authenticateToken, authenticateWebSocket } from './middleware/auth.js';
 import { IS_PLATFORM } from './constants/config.js';
+import novelsRoutes from './routes/novels.js';
+import { initPromptService } from './services/promptService.js';
+import { queryNovelClaudeSDK, isNovelRequest } from './services/novelClaudeIntegration.js';
+import Database from 'better-sqlite3';
 
 // File system watcher for projects folder
 let projectsWatcher = null;
@@ -313,6 +317,9 @@ app.use('/api/auth', authRoutes);
 
 // Projects API Routes (protected)
 app.use('/api/projects', authenticateToken, projectsRoutes);
+
+// Novels API Routes (protected)
+app.use('/api/novels', authenticateToken, novelsRoutes);
 
 // Git API Routes (protected)
 app.use('/api/git', authenticateToken, gitRoutes);
@@ -906,8 +913,15 @@ function handleChatConnection(ws) {
                 console.log('📁 Project:', data.options?.projectPath || 'Unknown');
                 console.log('🔄 Session:', data.options?.sessionId ? 'Resume' : 'New');
 
-                // Use Claude Agents SDK
-                await queryClaudeSDK(data.command, data.options, writer);
+                // Check if this is a Novel Platform request
+                if (isNovelRequest(data.options)) {
+                    console.log('[Novel Platform] Using novel-specific prompt service');
+                    // Use Novel Platform prompt service
+                    await queryNovelClaudeSDK(data.command, data.options, writer, queryClaudeSDK);
+                } else {
+                    // Use standard Claude Agents SDK
+                    await queryClaudeSDK(data.command, data.options, writer);
+                }
             } else if (data.type === 'cursor-command') {
                 console.log('[DEBUG] Cursor message:', data.command || '[Continue/Resume]');
                 console.log('📁 Project:', data.options?.cwd || 'Unknown');
@@ -1863,6 +1877,11 @@ async function startServer() {
     try {
         // Initialize authentication database
         await initializeDatabase();
+
+        // Initialize prompt service for Novel Platform
+        // Create an in-memory database for prompt service
+        const promptDb = new Database(':memory:');
+        initPromptService(promptDb);
 
         // Check if running in production mode (dist folder exists)
         const distIndexPath = path.join(__dirname, '../dist/index.html');
