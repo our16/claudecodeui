@@ -5,13 +5,13 @@
  */
 
 import { useState, useEffect, useContext, useRef } from 'react';
-import { AuthContext } from '../../contexts/AuthContext';
-import { WebSocketContext } from '../../contexts/WebSocketContext';
+import { useAuth } from '../../contexts/AuthContext';
+import WebSocketContext from '../../contexts/WebSocketContext';
 import { Send, StopCircle, RotateCw, Save } from 'lucide-react';
 
 export default function ChapterEditor({ novel, chapter, stateFiles }) {
-  const { user } = useContext(AuthContext);
-  const { send, isConnected } = useContext(WebSocketContext);
+  const { user } = useAuth();
+  const { sendMessage, isConnected } = useContext(WebSocketContext) || { sendMessage: () => {}, isConnected: false };
   const messagesEndRef = useRef(null);
 
   // 状态管理
@@ -68,7 +68,7 @@ export default function ChapterEditor({ novel, chapter, stateFiles }) {
     setIsWriting(true);
 
     // 通过 WebSocket 发送
-    send({
+    sendMessage({
       type: 'claude-command',
       command: input,
       options: {
@@ -81,7 +81,7 @@ export default function ChapterEditor({ novel, chapter, stateFiles }) {
 
   // 停止 AI 写作
   const handleStop = () => {
-    send({
+    sendMessage({
       type: 'claude-abort',
       sessionId: chapter.id
     });

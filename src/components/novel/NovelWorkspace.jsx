@@ -9,16 +9,16 @@
 
 import { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { AuthContext } from '../../contexts/AuthContext';
-import { WebSocketContext } from '../../contexts/WebSocketContext';
+import { useAuth } from '../../contexts/AuthContext';
+import WebSocketContext from '../../contexts/WebSocketContext';
 import NovelSidebar from './NovelSidebar';
 import ChapterListPanel from './ChapterListPanel';
 import ChapterEditor from './ChapterEditor';
 import StateFilesPanel from './StateFilesPanel';
 
 export default function NovelWorkspace() {
-  const { user } = useContext(AuthContext);
-  const { send, on, isConnected } = useContext(WebSocketContext);
+  const { user } = useAuth();
+  const { sendMessage, isConnected, latestMessage } = useContext(WebSocketContext) || { sendMessage: () => {}, isConnected: false, latestMessage: null };
   const { novelId } = useParams();
   const navigate = useNavigate();
 
@@ -111,29 +111,24 @@ export default function NovelWorkspace() {
 
   // WebSocket 消息处理
   useEffect(() => {
-    if (!isConnected) return;
+    if (!latestMessage) return;
 
-    const handleMessage = (message) => {
-      if (message.type === 'chapter-updated') {
-        // 更新章节列表
-        setChapters(prev => prev.map(ch =>
-          ch.id === message.data.chapterId
-            ? { ...ch, ...message.data }
-            : ch
-        ));
-      } else if (message.type === 'state-file-changed') {
-        // 更新状态文件
-        setStateFiles(prev => prev.map(sf =>
-          sf.name === message.data.name
-            ? { ...sf, ...message.data }
-            : sf
-        ));
-      }
-    };
-
-    const cleanup = on(handleMessage);
-    return cleanup;
-  }, [isConnected, on]);
+    if (latestMessage.type === 'chapter-updated') {
+      // 更新章节列表
+      setChapters(prev => prev.map(ch =>
+        ch.id === latestMessage.data.chapterId
+          ? { ...ch, ...latestMessage.data }
+          : ch
+      ));
+    } else if (latestMessage.type === 'state-file-changed') {
+      // 更新状态文件
+      setStateFiles(prev => prev.map(sf =>
+        sf.name === latestMessage.data.name
+          ? { ...sf, ...latestMessage.data }
+          : sf
+      ));
+    }
+  }, [latestMessage]);
 
   // 切换小说
   const handleNovelChange = (novel) => {

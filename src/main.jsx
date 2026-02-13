@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import App from './App.jsx'
+import App from './NovelApp.jsx'
 import './index.css'
 import 'katex/dist/katex.min.css'
 
