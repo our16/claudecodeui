@@ -42,6 +42,15 @@ export default function NovelInfoSidebar({ currentNovel }) {
             'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
           }
         });
+
+        if (!volumesResponse.ok) {
+          const contentType = volumesResponse.headers.get('content-type');
+          if (contentType?.includes('text/html')) {
+            throw new Error('Server returned HTML instead of JSON. Is the backend server running?');
+          }
+          throw new Error(`API error: ${volumesResponse.status} ${volumesResponse.statusText}`);
+        }
+
         const volumesData = await volumesResponse.json();
         if (volumesData.volumes) {
           setVolumes(volumesData.volumes);
@@ -58,9 +67,14 @@ export default function NovelInfoSidebar({ currentNovel }) {
               'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
             }
           });
-          const charactersData = await charactersResponse.json();
-          if (charactersData.content) {
-            setCharacters(parseCharactersData(charactersData.content));
+
+          if (!charactersResponse.ok) {
+            console.warn('Characters API error:', charactersResponse.status);
+          } else {
+            const charactersData = await charactersResponse.json();
+            if (charactersData.content) {
+              setCharacters(parseCharactersData(charactersData.content));
+            }
           }
         } catch (error) {
           console.warn('Failed to load characters:', error);
