@@ -8,12 +8,12 @@
  * - 章节内容列表
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, BookOpen, Users, Globe, Clock,
   ChevronDown, ChevronRight, FileText,
-  CheckCircle, Edit3, Circle, X
+  CheckCircle, Edit3, Circle, X, RefreshCw
 } from 'lucide-react';
 
 // 状态文件类型配置
@@ -25,53 +25,72 @@ const STATE_FILE_TYPES = {
   custom: { icon: FileText, label: '自定义', color: 'text-gray-600 dark:text-gray-400', bgColor: 'bg-gray-100 dark:bg-gray-700' }
 };
 
+// 状态文件名到中文的映射
+const STATE_FILE_NAME_MAP = {
+  'characters.md': '角色设定',
+  'timeline.md': '时间线',
+  'world_rules.md': '世界观设定',
+  'glossary.md': '术语表',
+  'outline.md': '大纲',
+  'plot.md': '剧情设定',
+  'settings.md': '设定集',
+  'notes.md': '创作笔记'
+};
+
 export default function NovelInfoSidebar({ currentNovel, onStateFileSelect }) {
   const navigate = useNavigate();
   const [volumes, setVolumes] = useState([]);
   const [stateFiles, setStateFiles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [expandedVolumes, setExpandedVolumes] = useState({});
   const [selectedChapter, setSelectedChapter] = useState(null);
   const [chapterContentModal, setChapterContentModal] = useState({ show: false, chapter: null, content: '', loading: false });
+  const [chapterOutlines, setChapterOutlines] = useState({}); // 缓存已加载的大纲内容
+  const intervalRef = useRef(null);
 
   // 返回项目列表
   const handleBackToList = () => {
     navigate('/novels');
   };
 
-  // 加载卷和章节数据
-  useEffect(() => {
+  // 加载卷和章节数据（不包含完整大纲内容，提升速度）
+  const loadData = useCallback(async (isRefresh = false) => {
     if (!currentNovel) return;
 
-    const loadData = async () => {
-      try {
+    try {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
         setLoading(true);
+      }
 
-        // 从文件系统加载卷和章节数据
-        const volumesResponse = await fetch(`/api/novels/${currentNovel.id}/volumes`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
-          }
-        });
-
-        if (!volumesResponse.ok) {
-          const contentType = volumesResponse.headers.get('content-type');
-          if (contentType?.includes('text/html')) {
-            throw new Error('Server returned HTML instead of JSON. Is the backend server running?');
-          }
-          throw new Error(`API error: ${volumesResponse.status} ${volumesResponse.statusText}`);
+      // 从文件系统加载卷和章节数据（不包含完整大纲）
+      const volumesResponse = await fetch(`/api/novels/${currentNovel.id}/volumes?includeOutline=false`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
         }
+      });
 
-        const volumesData = await volumesResponse.json();
-        if (volumesData.volumes) {
-          setVolumes(volumesData.volumes);
-          // 默认展开第一个卷
-          if (volumesData.volumes.length > 0) {
-            setExpandedVolumes({ [volumesData.volumes[0].name]: true });
-          }
+      if (!volumesResponse.ok) {
+        const contentType = volumesResponse.headers.get('content-type');
+        if (contentType?.includes('text/html')) {
+          throw new Error('Server returned HTML instead of JSON. Is the backend server running?');
         }
+        throw new Error(`API error: ${volumesResponse.status} ${volumesResponse.statusText}`);
+      }
 
-        // 加载状态文件列表
+      const volumesData = await volumesResponse.json();
+      if (volumesData.volumes) {
+        setVolumes(volumesData.volumes);
+        // 默认展开第一个卷
+        if (volumesData.volumes.length > 0 && !isRefresh) {
+          setExpandedVolumes({ [volumesData.volumes[0].name]: true });
+        }
+      }
+
+      // 加载状态文件列表（仅在首次加载时）
+      if (!isRefresh) {
         try {
           const stateFilesResponse = await fetch(`/api/novels/${currentNovel.id}/state-files`, {
             headers: {
@@ -90,15 +109,76 @@ export default function NovelInfoSidebar({ currentNovel, onStateFileSelect }) {
         } catch (error) {
           console.warn('Failed to load state files:', error);
         }
-      } catch (error) {
-        console.error('Failed to load novel info:', error);
-      } finally {
-        setLoading(false);
+      }
+    } catch (error) {
+      console.error('Failed to load novel info:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [currentNovel]);
+
+  // 首次加载
+  useEffect(() => {
+    if (!currentNovel) return;
+    loadData(false);
+  }, [currentNovel, loadData]);
+
+  // 10秒定时刷新
+  useEffect(() => {
+    if (!currentNovel) return;
+
+    // 设置10秒定时器
+    intervalRef.current = setInterval(() => {
+      loadData(true);
+    }, 10000);
+
+    // 清理定时器
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     };
+  }, [currentNovel, loadData]);
 
-    loadData();
-  }, [currentNovel]);
+  // 按需加载单个章节的大纲内容
+  const loadChapterOutline = async (volumeName, chapterNumber) => {
+    const cacheKey = `${volumeName}-${chapterNumber}`;
+
+    // 如果已经缓存，直接返回
+    if (chapterOutlines[cacheKey]) {
+      return chapterOutlines[cacheKey];
+    }
+
+    try {
+      // 加载包含完整大纲的数据
+      const response = await fetch(`/api/novels/${currentNovel.id}/volumes?includeOutline=true`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const volume = data.volumes.find(v => v.name === volumeName);
+        if (volume) {
+          const chapter = volume.chapters.find(ch => ch.number === chapterNumber);
+          if (chapter && chapter.outline) {
+            // 缓存大纲内容
+            setChapterOutlines(prev => ({
+              ...prev,
+              [cacheKey]: chapter.outline
+            }));
+            return chapter.outline;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load chapter outline:', error);
+    }
+    return null;
+  };
 
   // 切换卷展开/收起
   const toggleVolume = (volumeName) => {
@@ -139,10 +219,25 @@ export default function NovelInfoSidebar({ currentNovel, onStateFileSelect }) {
     }
   };
 
-  // 处理章节点击 - 切换大纲展开/收起
-  const handleChapterClick = (volumeName, chapter) => {
+  // 处理章节点击 - 切换大纲展开/收起，按需加载大纲
+  const handleChapterClick = async (volumeName, chapter) => {
     const chapterKey = `${volumeName}-${chapter.number}`;
-    setSelectedChapter(prev => prev === chapterKey ? null : chapterKey);
+
+    if (selectedChapter === chapterKey) {
+      // 收起
+      setSelectedChapter(null);
+    } else {
+      // 展开，按需加载大纲内容
+      setSelectedChapter(chapterKey);
+      if (chapter.outlineCreated && !chapterOutlines[chapterKey]) {
+        await loadChapterOutline(volumeName, chapter.number);
+      }
+    }
+  };
+
+  // 手动刷新
+  const handleManualRefresh = () => {
+    loadData(true);
   };
 
   // 获取章节状态图标和颜色
@@ -274,6 +369,8 @@ export default function NovelInfoSidebar({ currentNovel, onStateFileSelect }) {
               {stateFiles.map((sf) => {
                 const config = STATE_FILE_TYPES[sf.type] || STATE_FILE_TYPES.custom;
                 const Icon = config.icon;
+                // 获取中文显示名称：优先使用映射表，否则使用原名
+                const displayName = STATE_FILE_NAME_MAP[sf.name] || sf.name.replace('.md', '');
                 return (
                   <button
                     key={sf.name}
@@ -284,7 +381,7 @@ export default function NovelInfoSidebar({ currentNovel, onStateFileSelect }) {
                       <Icon className={`w-3.5 h-3.5 ${config.color}`} />
                     </div>
                     <span className="text-xs text-gray-700 dark:text-gray-300 truncate flex-1">
-                      {sf.name}
+                      {displayName}
                     </span>
                   </button>
                 );
@@ -295,9 +392,22 @@ export default function NovelInfoSidebar({ currentNovel, onStateFileSelect }) {
 
         {/* 卷大纲列表 */}
         <div className="p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <BookOpen className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-            <h3 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">卷大纲</h3>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+              <h3 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">卷大纲</h3>
+              {refreshing && (
+                <span className="text-xs text-gray-400">刷新中...</span>
+              )}
+            </div>
+            <button
+              onClick={handleManualRefresh}
+              disabled={refreshing}
+              className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+              title="手动刷新"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-gray-500 dark:text-gray-400 ${refreshing ? 'animate-spin' : ''}`} />
+            </button>
           </div>
 
           {loading ? (
@@ -384,10 +494,16 @@ export default function NovelInfoSidebar({ currentNovel, onStateFileSelect }) {
                               </div>
 
                               {/* 展开的大纲详情 */}
-                              {isSelected && chapter.outline && (
+                              {isSelected && (() => {
+                                const chapterKey = `${volume.name}-${chapter.number}`;
+                                const outlineContent = chapterOutlines[chapterKey];
+                                return chapter.outlineCreated && (outlineContent || chapter.outline);
+                              })() && (
                                 <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700">
                                   {(() => {
-                                    const summary = getOutlineSummary(chapter.outline);
+                                    const chapterKey = `${volume.name}-${chapter.number}`;
+                                    const outlineContent = chapterOutlines[chapterKey] || chapter.outline;
+                                    const summary = getOutlineSummary(outlineContent);
                                     if (!summary) return null;
 
                                     return (

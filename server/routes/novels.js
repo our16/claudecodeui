@@ -698,11 +698,15 @@ router.post('/:id/chapters/:chapterId/sessions', async (req, res) => {
  * - volumes/vol1/ 包含 ch01-ch10
  * - volumes/vol2/ 包含 ch11-ch20
  * 每个章节包含：chXX.md（内容）、chXX.state（状态）、chXX_outline.md（大纲）
+ *
+ * 查询参数：
+ * - includeOutline: 是否包含完整大纲内容（默认 false，提升查询速度）
  */
 router.get('/:id/volumes', async (req, res) => {
   try {
     const userId = req.user.id;
     const novelId = req.params.id;
+    const includeOutline = req.query.includeOutline === 'true';
 
     // 获取小说信息（包含工作目录路径）
     const novel = db.prepare(`
@@ -733,17 +737,12 @@ router.get('/:id/volumes', async (req, res) => {
     const volumeDirs = await fs.readdir(volumesPath);
     const volumes = [];
 
-    for (const volDir of volumeDirs) {
+    // 并行处理所有卷目录
+    const volumePromises = volumeDirs.map(async (volDir) => {
       const volPath = path.join(volumesPath, volDir);
       const volStat = await fs.stat(volPath);
 
-      if (!volStat.isDirectory()) continue;
-
-      const volume = {
-        name: volDir,
-        displayName: `第 ${volumes.length + 1} 卷`,
-        chapters: []
-      };
+      if (!volStat.isDirectory()) return null;
 
       // 读取卷目录下的章节文件
       const files = await fs.readdir(volPath);
@@ -757,8 +756,8 @@ router.get('/:id/volumes', async (req, res) => {
         }
       }
 
-      // 读取每个章节的详细信息
-      for (const chNum of Array.from(chapterNumbers).sort((a, b) => a - b)) {
+      // 并行读取每个章节的详细信息
+      const chapterPromises = Array.from(chapterNumbers).sort((a, b) => a - b).map(async (chNum) => {
         const chFile = `ch${String(chNum).padStart(2, '0')}`;
         const mdPath = path.join(volPath, `${chFile}.md`);
         const statePath = path.join(volPath, `${chFile}.state`);
@@ -775,10 +774,16 @@ router.get('/:id/volumes', async (req, res) => {
           outline: null
         };
 
-        // 读取状态文件
-        try {
-          const stateContent = await fs.readFile(statePath, 'utf-8');
-          const stateLines = stateContent.split('\n');
+        // 并行读取三个文件
+        const [stateResult, outlineResult, contentResult] = await Promise.allSettled([
+          fs.readFile(statePath, 'utf-8'),
+          includeOutline ? fs.readFile(outlinePath, 'utf-8') : fs.access(outlinePath).then(() => ''),
+          fs.readFile(mdPath, 'utf-8')
+        ]);
+
+        // 解析状态文件
+        if (stateResult.status === 'fulfilled') {
+          const stateLines = stateResult.value.split('\n');
           for (const line of stateLines) {
             if (line.startsWith('title:')) {
               chapter.title = line.replace('title:', '').trim().replace(/"/g, '');
@@ -792,42 +797,49 @@ router.get('/:id/volumes', async (req, res) => {
               chapter.contentCreated = line.includes('true');
             }
           }
-        } catch {
-          // 状态文件不存在，使用默认值
         }
 
-        // 读取大纲内容
-        try {
-          const outlineContent = await fs.readFile(outlinePath, 'utf-8');
-          chapter.outline = outlineContent;
-          chapter.outlineCreated = true;
-
-          // 尝试从大纲中提取标题
-          const titleMatch = outlineContent.match(/\*\*章节标题\*\*:\s*(.+)/);
-          if (titleMatch) {
-            chapter.title = titleMatch[1].trim();
+        // 解析大纲文件
+        if (outlineResult.status === 'fulfilled') {
+          if (includeOutline && outlineResult.value) {
+            chapter.outline = outlineResult.value;
+            chapter.outlineCreated = true;
+            // 尝试从大纲中提取标题
+            const titleMatch = outlineResult.value.match(/\*\*章节标题\*\*:\s*(.+)/);
+            if (titleMatch) {
+              chapter.title = titleMatch[1].trim();
+            }
+          } else {
+            chapter.outlineCreated = true;
           }
-        } catch {
-          // 大纲文件不存在
         }
 
-        // 读取章节内容统计字数
-        try {
-          const content = await fs.readFile(mdPath, 'utf-8');
-          chapter.wordCount = content.length;
-          chapter.contentCreated = content.trim().length > 0 && !content.includes('本章内容待撰写');
-        } catch {
-          // 内容文件不存在
+        // 解析章节内容
+        if (contentResult.status === 'fulfilled') {
+          chapter.wordCount = contentResult.value.length;
+          chapter.contentCreated = contentResult.value.trim().length > 0 && !contentResult.value.includes('本章内容待撰写');
         }
 
-        volume.chapters.push(chapter);
-      }
+        return chapter;
+      });
 
-      volumes.push(volume);
-    }
+      const chapters = await Promise.all(chapterPromises);
 
-    // 按卷名排序
+      return {
+        name: volDir,
+        displayName: '',
+        chapters: chapters.filter(Boolean)
+      };
+    });
+
+    const volumeResults = await Promise.all(volumePromises);
+    volumes.push(...volumeResults.filter(Boolean));
+
+    // 按卷名排序并设置显示名称
     volumes.sort((a, b) => a.name.localeCompare(b.name));
+    volumes.forEach((volume, index) => {
+      volume.displayName = `第 ${index + 1} 卷`;
+    });
 
     res.json({ volumes });
   } catch (error) {
