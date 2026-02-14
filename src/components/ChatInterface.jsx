@@ -3297,6 +3297,12 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
                     }
                     return updated;
                   });
+                  // Auto-scroll during streaming if user is near bottom
+                  requestAnimationFrame(() => {
+                    if (isNearBottom()) {
+                      scrollToBottom();
+                    }
+                  });
                 }, 100);
               }
               return;
@@ -3328,6 +3334,12 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
                   last.isStreaming = false;
                 }
                 return updated;
+              });
+              // Auto-scroll after streaming completes if user is near bottom
+              requestAnimationFrame(() => {
+                if (isNearBottom()) {
+                  scrollToBottom();
+                }
               });
               return;
             }
@@ -3479,6 +3491,12 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
                       updated.push({ type: 'assistant', content: chunk, timestamp: new Date(), isStreaming: true });
                     }
                     return updated;
+                  });
+                  // Auto-scroll during streaming if user is near bottom
+                  requestAnimationFrame(() => {
+                    if (isNearBottom()) {
+                      scrollToBottom();
+                    }
                   });
                 }, 100);
               }
@@ -3659,6 +3677,12 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
                 }
                 return updated;
               });
+              // Auto-scroll after result message if user is near bottom
+              requestAnimationFrame(() => {
+                if (isNearBottom()) {
+                  scrollToBottom();
+                }
+              });
             } catch (e) {
               console.warn('Error handling cursor-result message:', e);
             }
@@ -3699,6 +3723,12 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
                       updated.push({ type: 'assistant', content: chunk, timestamp: new Date(), isStreaming: true });
                     }
                     return updated;
+                  });
+                  // Auto-scroll during streaming if user is near bottom
+                  requestAnimationFrame(() => {
+                    if (isNearBottom()) {
+                      scrollToBottom();
+                    }
                   });
                 }, 100);
               }

@@ -690,4 +690,150 @@ router.post('/:id/chapters/:chapterId/sessions', async (req, res) => {
   }
 });
 
+/**
+ * 扫描 volumes 目录获取卷、大纲和章节信息
+ * GET /api/novels/:id/volumes
+ *
+ * 从文件系统读取 volumes 目录结构：
+ * - volumes/vol1/ 包含 ch01-ch10
+ * - volumes/vol2/ 包含 ch11-ch20
+ * 每个章节包含：chXX.md（内容）、chXX.state（状态）、chXX_outline.md（大纲）
+ */
+router.get('/:id/volumes', async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const novelId = req.params.id;
+
+    // 获取小说信息（包含工作目录路径）
+    const novel = db.prepare(`
+      SELECT id, project_path FROM novels WHERE id = ? AND user_id = ?
+    `).get(novelId, userId);
+
+    if (!novel) {
+      return res.status(404).json({ error: 'Novel not found' });
+    }
+
+    const projectPath = novel.project_path;
+    if (!projectPath) {
+      return res.status(400).json({ error: 'Novel has no project path configured' });
+    }
+
+    const fs = (await import('fs')).promises;
+    const path = (await import('path'));
+    const volumesPath = path.join(projectPath, 'volumes');
+
+    // 检查 volumes 目录是否存在
+    try {
+      await fs.access(volumesPath);
+    } catch {
+      return res.json({ volumes: [], message: 'Volumes directory not found' });
+    }
+
+    // 读取卷目录
+    const volumeDirs = await fs.readdir(volumesPath);
+    const volumes = [];
+
+    for (const volDir of volumeDirs) {
+      const volPath = path.join(volumesPath, volDir);
+      const volStat = await fs.stat(volPath);
+
+      if (!volStat.isDirectory()) continue;
+
+      const volume = {
+        name: volDir,
+        displayName: `第 ${volumes.length + 1} 卷`,
+        chapters: []
+      };
+
+      // 读取卷目录下的章节文件
+      const files = await fs.readdir(volPath);
+
+      // 收集章节编号
+      const chapterNumbers = new Set();
+      for (const file of files) {
+        const match = file.match(/^ch(\d+)\.md$/);
+        if (match) {
+          chapterNumbers.add(parseInt(match[1], 10));
+        }
+      }
+
+      // 读取每个章节的详细信息
+      for (const chNum of Array.from(chapterNumbers).sort((a, b) => a - b)) {
+        const chFile = `ch${String(chNum).padStart(2, '0')}`;
+        const mdPath = path.join(volPath, `${chFile}.md`);
+        const statePath = path.join(volPath, `${chFile}.state`);
+        const outlinePath = path.join(volPath, `${chFile}_outline.md`);
+
+        const chapter = {
+          number: chNum,
+          volumeName: volDir,
+          title: '待定',
+          status: 'pending',
+          wordCount: 0,
+          outlineCreated: false,
+          contentCreated: false,
+          outline: null
+        };
+
+        // 读取状态文件
+        try {
+          const stateContent = await fs.readFile(statePath, 'utf-8');
+          const stateLines = stateContent.split('\n');
+          for (const line of stateLines) {
+            if (line.startsWith('title:')) {
+              chapter.title = line.replace('title:', '').trim().replace(/"/g, '');
+            } else if (line.startsWith('status:')) {
+              chapter.status = line.replace('status:', '').trim().replace(/"/g, '');
+            } else if (line.startsWith('word_count:')) {
+              chapter.wordCount = parseInt(line.replace('word_count:', '').trim(), 10) || 0;
+            } else if (line.startsWith('outline_created:')) {
+              chapter.outlineCreated = line.includes('true');
+            } else if (line.startsWith('content_created:')) {
+              chapter.contentCreated = line.includes('true');
+            }
+          }
+        } catch {
+          // 状态文件不存在，使用默认值
+        }
+
+        // 读取大纲内容
+        try {
+          const outlineContent = await fs.readFile(outlinePath, 'utf-8');
+          chapter.outline = outlineContent;
+          chapter.outlineCreated = true;
+
+          // 尝试从大纲中提取标题
+          const titleMatch = outlineContent.match(/\*\*章节标题\*\*:\s*(.+)/);
+          if (titleMatch) {
+            chapter.title = titleMatch[1].trim();
+          }
+        } catch {
+          // 大纲文件不存在
+        }
+
+        // 读取章节内容统计字数
+        try {
+          const content = await fs.readFile(mdPath, 'utf-8');
+          chapter.wordCount = content.length;
+          chapter.contentCreated = content.trim().length > 0 && !content.includes('本章内容待撰写');
+        } catch {
+          // 内容文件不存在
+        }
+
+        volume.chapters.push(chapter);
+      }
+
+      volumes.push(volume);
+    }
+
+    // 按卷名排序
+    volumes.sort((a, b) => a.name.localeCompare(b.name));
+
+    res.json({ volumes });
+  } catch (error) {
+    console.error('Error scanning volumes:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;
