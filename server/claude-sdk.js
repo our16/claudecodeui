@@ -148,7 +148,7 @@ function matchesToolPermission(entry, toolName, input) {
  * @returns {Object} SDK-compatible options
  */
 function mapCliOptionsToSDK(options = {}) {
-  const { sessionId, cwd, toolsSettings, permissionMode, images } = options;
+  const { sessionId, cwd, toolsSettings, permissionMode, images, systemPrompt } = options;
 
   const sdkOptions = {};
 
@@ -201,11 +201,15 @@ function mapCliOptionsToSDK(options = {}) {
   sdkOptions.model = options.model || CLAUDE_MODELS.DEFAULT;
   console.log(`Using model: ${sdkOptions.model}`);
 
-  // Map system prompt configuration
-  sdkOptions.systemPrompt = {
-    type: 'preset',
-    preset: 'claude_code'  // Required to use CLAUDE.md
-  };
+  // Map system prompt configuration (only if not already set by caller)
+  if (!systemPrompt) {
+    sdkOptions.systemPrompt = {
+      type: 'preset',
+      preset: 'claude_code'  // Required to use CLAUDE.md
+    };
+  } else {
+    sdkOptions.systemPrompt = systemPrompt;
+  }
 
   // Map setting sources for CLAUDE.md loading
   // This loads CLAUDE.md from project, user (~/.config/claude/CLAUDE.md), and local directories

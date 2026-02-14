@@ -7,7 +7,6 @@
 
 import path from 'path';
 import { promises as fs } from 'fs';
-import os from 'os';
 
 // ============================================================================
 // 固定系统提示词（宪法层）
@@ -273,8 +272,8 @@ export async function buildPromptForSDK(options) {
   // 组合系统提示词
   let systemPrompt = getSystemPrompt() + '\n\n' + runtimeContext + stateFilesSummary;
 
-  // 清理多余换行符：连续超过2个换行符合并为2个
-  systemPrompt = systemPrompt.replace(/\n{3,}/g, '\n\n').trim();
+  // 清理换行符：将所有换行符替换为空格
+  systemPrompt = systemPrompt.replace(/\n+/g, ' ').trim();
 
   // 如果有章节信息，添加章节上下文
   let chapterContext = '';
