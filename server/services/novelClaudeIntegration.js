@@ -93,7 +93,7 @@ export async function queryNovelClaudeSDK(command, options = {}, ws, originalQue
         images: restOptions.images,
         model: restOptions.model
       };
-      console.log('[Novel Platform] Using custom system prompt for novel:', novelId);
+      console.log('[Novel Platform] Using custom system prompt for novel:',promptConfig.systemPrompt, novelId);
       // 调用原始的 queryClaudeSDK，使用增强的选项
       return originalQueryClaudeSDK(command, enhancedOptions, ws);
 }

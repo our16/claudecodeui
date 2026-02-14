@@ -1950,6 +1950,8 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
   // Track provider transitions so we only clear approvals when provider truly changes.
   // This does not sync with the backend; it just prevents UI prompts from disappearing.
   const lastProviderRef = useRef(provider);
+  // Track last loaded draft project to prevent infinite loops when loading saved input
+  const lastDraftProjectRef = useRef(null);
 
   const resetStreamingState = useCallback(() => {
     if (streamTimerRef.current) {
@@ -3215,9 +3217,11 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
   // Load saved state when project changes (but don't interfere with session loading)
   useEffect(() => {
     if (selectedProject) {
-      // Always load saved input draft for the project
-      const savedInput = safeLocalStorage.getItem(`draft_input_${selectedProject.name}`) || '';
-      if (savedInput !== input) {
+      const projectName = selectedProject.name;
+      // Only reload if project actually changed, not on every render
+      if (projectName !== lastDraftProjectRef.current) {
+        lastDraftProjectRef.current = projectName;
+        const savedInput = safeLocalStorage.getItem(`draft_input_${projectName}`) || '';
         setInput(savedInput);
       }
     }

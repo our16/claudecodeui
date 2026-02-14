@@ -137,7 +137,7 @@ export const PROMPT_VERSIONS = {
  * @returns {string} 系统提示词
  */
 export function getSystemPrompt() {
-  const version = process.env.NOVEL_PROMPT_VERSION || 'simplified';
+  const version = process.env.NOVEL_PROMPT_VERSION || 'full';
   return PROMPT_VERSIONS[version] || SIMPLIFIED_SYSTEM_PROMPT;
 }
 
