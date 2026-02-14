@@ -48,7 +48,7 @@ export default function NovelHome() {
       await fetch(`/api/novels/${novelId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
         }
       });
       // 从列表中移除

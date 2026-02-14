@@ -38,7 +38,7 @@ export default function NovelWorkspace() {
       try {
         const response = await fetch('/api/novels', {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+            'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
           }
         });
         const data = await response.json();
@@ -71,7 +71,7 @@ export default function NovelWorkspace() {
       try {
         const response = await fetch(`/api/novels/${currentNovel.id}/chapters`, {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+            'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
           }
         });
         const data = await response.json();
@@ -94,7 +94,7 @@ export default function NovelWorkspace() {
       try {
         const response = await fetch(`/api/novels/${currentNovel.id}/state-files`, {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+            'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
           }
         });
         const data = await response.json();

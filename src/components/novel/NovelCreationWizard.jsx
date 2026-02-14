@@ -23,25 +23,25 @@ export default function NovelCreationWizard() {
     // 基本信息
     name: '',
     displayName: '',
-    genre: '仙侠', // 默认值
+    genre: '仙侠',
     description: '',
     // 结构规划
     volumeCount: 10,
     chaptersPerVolume: 100,
     totalChapters: 1000,
     // 创作偏好
-    aiStyle: 'balanced', // balanced, creative, efficient
+    aiStyle: 'balanced',
     dailyTarget: 8000
   });
 
   // 验证当前步骤
   const isStepValid = () => {
     switch (currentStep) {
-      case 0: // 基本信息
+      case 0:
         return formData.name.trim().length > 0 && formData.displayName.trim().length > 0;
-      case 1: // 结构规划
+      case 1:
         return formData.totalChapters > 0;
-      case 2: // 创作偏好
+      case 2:
         return formData.dailyTarget > 0;
       default:
         return false;
@@ -50,7 +50,7 @@ export default function NovelCreationWizard() {
 
   // 下一步
   const handleNext = () => {
-    if (currentStep < STEPS.length - 1) {
+    if (currentStep < STEPS.length - 1 && isStepValid()) {
       setCurrentStep(currentStep + 1);
     }
   };
@@ -68,7 +68,7 @@ export default function NovelCreationWizard() {
       const response = await fetch('/api/novels', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -113,9 +113,9 @@ export default function NovelCreationWizard() {
             {STEPS.map((step, index) => (
               <span
                 key={step.id}
-                className={`inline-block px-2 py-1 mx-1 rounded-lg text-sm ${
+                className={`inline-block px-3 py-1.5 mx-1 rounded-lg text-sm ${
                   currentStep === index
-                    ? 'bg-blue-500 text-white'
+                    ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 text-gray-600'
                 }`}
               >
@@ -132,12 +132,12 @@ export default function NovelCreationWizard() {
               <div
                 key={step.id}
                 className={`h-2 flex-1 ${
-                  index < currentStep ? 'bg-blue-500' : 'bg-gray-200'
+                  index < currentStep ? 'bg-blue-600' : 'bg-gray-200'
                 } rounded-t-lg relative`}
               >
                 {index < currentStep && (
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center text-blue-500 font-bold">
+                    <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center text-blue-600 font-bold">
                       {index + 1}
                     </div>
                   </div>
@@ -147,56 +147,56 @@ export default function NovelCreationWizard() {
           </div>
         </div>
 
-        {/* 步骤内容 */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+        {/* 步骤内容 - 可滚动区域 */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 max-h-[70vh] overflow-y-auto">
           {currentStep === 0 && (
             <>
-              <h2 className="text-xl font-semibold text-gray-800 mb-6">基本信息</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">基本信息</h2>
 
-              <div className="space-y-4">
+              <div className="space-y-5">
                 {/* 小说名称 */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    小说名称 <span className="text-red-500">*</span>
+                  <label className="block text-sm font-semibold text-gray-800 mb-2">
+                    小说名称 <span className="text-red-600">*</span>
                   </label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="例如：仙逆、霸道总裁..."
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
                   />
                 </div>
 
                 {/* 显示名称 */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    显示名称 <span className="text-red-500">*</span>
+                  <label className="block text-sm font-semibold text-gray-800 mb-2">
+                    显示名称 <span className="text-red-600">*</span>
                   </label>
                   <input
                     type="text"
                     value={formData.displayName}
                     onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
                     placeholder="显示在界面上的名称"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
                   />
                 </div>
 
                 {/* 类型选择 */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-semibold text-gray-800 mb-3">
                     类型
                   </label>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-5 gap-3">
                     {['仙侠', '玄幻', '都市', '历史', '科幻', '言情'].map(genre => (
                       <button
                         key={genre}
                         type="button"
                         onClick={() => setFormData({ ...formData, genre })}
-                        className={`px-4 py-3 rounded-lg border-2 transition-colors ${
+                        className={`px-4 py-3 rounded-lg border-2 font-medium transition-all ${
                           formData.genre === genre
-                            ? 'border-blue-500 bg-blue-50 text-blue-700'
-                            : 'border-gray-200 hover:border-gray-300'
+                            ? 'border-blue-600 bg-blue-50 text-blue-800'
+                            : 'border-gray-300 text-gray-700 hover:border-gray-400 hover:bg-gray-50'
                         }`}
                       >
                         {genre}
@@ -207,7 +207,7 @@ export default function NovelCreationWizard() {
 
                 {/* 简介 */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-semibold text-gray-800 mb-2">
                     简介
                   </label>
                   <textarea
@@ -215,7 +215,7 @@ export default function NovelCreationWizard() {
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     placeholder="简单描述你的小说..."
                     rows={4}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 resize-none"
                   />
                 </div>
               </div>
@@ -224,30 +224,30 @@ export default function NovelCreationWizard() {
 
           {currentStep === 1 && (
             <>
-              <h2 className="text-xl font-semibold text-gray-800 mb-6">结构规划</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">结构规划</h2>
 
               <div className="space-y-6">
                 {/* 总章节数 */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-semibold text-gray-800 mb-2">
                     预计总章节数
                   </label>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3">
                     <input
                       type="number"
                       value={formData.totalChapters}
                       onChange={(e) => setFormData({ ...formData, totalChapters: parseInt(e.target.value) || 1000 })}
-                      className="w-32 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full max-w-[200px] px-4 py-3 border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
                       min="1"
                       max="10000"
                     />
-                    <span className="text-gray-500">章</span>
+                    <span className="text-gray-600 font-medium">章</span>
                   </div>
                 </div>
 
                 {/* 卷数分配 */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-semibold text-gray-800 mb-2">
                     分为几卷
                   </label>
                   <input
@@ -257,17 +257,19 @@ export default function NovelCreationWizard() {
                       const volumes = parseInt(e.target.value) || 1;
                       setFormData({ ...formData, volumeCount: volumes, chaptersPerVolume: Math.ceil(formData.totalChapters / volumes) });
                     }}
-                    className="w-32 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full max-w-[200px] px-4 py-3 border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
                     min="1"
                     max="100"
                   />
-                  <span className="text-gray-500 ml-2">卷 (约 {Math.ceil(formData.totalChapters / formData.volumeCount)} 章/卷)</span>
+                  <span className="text-gray-600 ml-3">
+                    约 {Math.ceil(formData.totalChapters / formData.volumeCount)} 章/卷
+                  </span>
                 </div>
 
                 {/* 说明文本 */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-sm text-blue-700">
-                    <BookOpen className="w-4 h-4 inline mr-2" />
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-5">
+                  <p className="text-sm text-blue-800 leading-relaxed">
+                    <BookOpen className="w-5 h-5 inline-block mr-3" />
                     合理的卷数分配有助于管理长篇连载。建议：10-50 万字的小说可分为 5-10 卷，每卷 10-20 万字。
                   </p>
                 </div>
@@ -277,15 +279,15 @@ export default function NovelCreationWizard() {
 
           {currentStep === 2 && (
             <>
-              <h2 className="text-xl font-semibold text-gray-800 mb-6">创作偏好</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">创作偏好</h2>
 
               <div className="space-y-6">
                 {/* AI 创作风格 */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                  <label className="block text-sm font-semibold text-gray-800 mb-3">
                     AI 创作风格
                   </label>
-                  <div className="space-y-3">
+                  <div className="grid grid-cols-1 gap-4">
                     {[
                       { id: 'balanced', label: '平衡', desc: '在质量和速度间保持平衡' },
                       { id: 'creative', label: '创意优先', desc: '更多创新和自由发挥' },
@@ -295,13 +297,13 @@ export default function NovelCreationWizard() {
                         key={style.id}
                         type="button"
                         onClick={() => setFormData({ ...formData, aiStyle: style.id })}
-                        className={`w-full p-4 rounded-lg border-2 text-left transition-colors ${
+                        className={`w-full p-5 rounded-xl border-2 text-left transition-all ${
                           formData.aiStyle === style.id
-                            ? 'border-blue-500 bg-blue-50 text-blue-700'
-                            : 'border-gray-200 hover:border-gray-300'
+                            ? 'border-blue-600 bg-blue-50 text-blue-800'
+                            : 'border-gray-300 text-gray-700 hover:border-gray-400 hover:bg-gray-50'
                         }`}
                       >
-                        <div className="font-medium">{style.label}</div>
+                        <div className="font-semibold text-base">{style.label}</div>
                         <div className="text-sm text-gray-500">{style.desc}</div>
                       </button>
                     ))}
@@ -310,27 +312,27 @@ export default function NovelCreationWizard() {
 
                 {/* 日更目标 */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-semibold text-gray-800 mb-2">
                     默认日更目标（字数）
                   </label>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3">
                     <input
                       type="number"
                       value={formData.dailyTarget}
                       onChange={(e) => setFormData({ ...formData, dailyTarget: parseInt(e.target.value) || 8000 })}
-                      className="w-32 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full max-w-[200px] px-4 py-3 border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600"
                       min="1000"
                       max="50000"
                       step="1000"
                     />
-                    <span className="text-gray-500">字/天</span>
+                    <span className="text-gray-600 font-medium">字/天</span>
                   </div>
                 </div>
 
                 {/* 高级选项提示 */}
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <p className="text-sm text-yellow-700">
-                    <Zap className="w-4 h-4 inline mr-2" />
+                <div className="bg-yellow-50 border border-yellow-300 rounded-xl p-5">
+                  <p className="text-sm text-yellow-800 leading-relaxed">
+                    <Zap className="w-5 h-5 inline-block mr-3" />
                     这些设置可以在创建后随时在"设置"中修改。开始创作前，建议先完善角色和世界观设定。
                   </p>
                 </div>
@@ -339,11 +341,11 @@ export default function NovelCreationWizard() {
           )}
 
           {/* 导航按钮 */}
-          <div className="flex justify-between mt-8 pt-6 border-t border-gray-200">
+          <div className="flex justify-between mt-8 pt-6 border-t border-gray-300">
             <button
               onClick={handlePrevious}
               disabled={currentStep === 0}
-              className="px-6 py-3 rounded-lg text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-6 py-3 rounded-xl font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-all"
             >
               <ChevronLeft className="w-5 h-5" />
               上一步
@@ -353,7 +355,7 @@ export default function NovelCreationWizard() {
               <button
                 onClick={handleNext}
                 disabled={!isStepValid()}
-                className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-6 py-3 rounded-xl font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2 transition-all"
               >
                 下一步
                 <ChevronRight className="w-5 h-5" />
@@ -362,7 +364,7 @@ export default function NovelCreationWizard() {
               <button
                 onClick={handleCreate}
                 disabled={!isStepValid()}
-                className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-6 py-3 rounded-xl font-medium text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2 transition-all"
               >
                 <Zap className="w-5 h-5" />
                 创建小说

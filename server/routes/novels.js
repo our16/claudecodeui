@@ -6,6 +6,7 @@
 
 import express from 'express';
 import { getPromptService } from '../services/promptService.js';
+import { db } from '../database/db.js';
 
 const router = express.Router();
 
@@ -16,7 +17,6 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   try {
     const userId = req.user.id;
-    const db = req.app.locals.db;
 
     const novels = db.prepare(`
       SELECT
@@ -55,7 +55,6 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const userId = req.user.id;
-    const db = req.app.locals.db;
 
     const {
       name,
@@ -94,12 +93,16 @@ router.post('/', async (req, res) => {
     ];
 
     const insertStateFile = db.prepare(`
-      INSERT INTO state_files (novel_id, name, type, content, updated_at)
+      INSERT OR IGNORE INTO state_files (novel_id, name, type, content, updated_at)
       VALUES (?, ?, ?, ?, datetime('now'))
     `);
 
     for (const file of defaultStateFiles) {
-      insertStateFile.run(novelId, file.name, file.type, file.content);
+      try {
+        insertStateFile.run(novelId, file.name, file.type, file.content);
+      } catch (error) {
+        console.warn(`Failed to insert state file ${file.name} for novel ${novelId}:`, error.message);
+      }
     }
 
     // 获取创建的小说
@@ -122,7 +125,6 @@ router.get('/:id', async (req, res) => {
   try {
     const userId = req.user.id;
     const novelId = req.params.id;
-    const db = req.app.locals.db;
 
     const novel = db.prepare(`
       SELECT * FROM novels WHERE id = ? AND user_id = ?
@@ -172,7 +174,6 @@ router.put('/:id', async (req, res) => {
   try {
     const userId = req.user.id;
     const novelId = req.params.id;
-    const db = req.app.locals.db;
 
     // 检查权限
     const existing = db.prepare(`
@@ -233,7 +234,6 @@ router.delete('/:id', async (req, res) => {
   try {
     const userId = req.user.id;
     const novelId = req.params.id;
-    const db = req.app.locals.db;
 
     // 检查权限
     const existing = db.prepare(`
@@ -269,7 +269,6 @@ router.get('/:id/chapters', async (req, res) => {
   try {
     const userId = req.user.id;
     const novelId = req.params.id;
-    const db = req.app.locals.db;
 
     // 检查小说权限
     const novel = db.prepare(`
@@ -313,7 +312,6 @@ router.post('/:id/chapters', async (req, res) => {
   try {
     const userId = req.user.id;
     const novelId = req.params.id;
-    const db = req.app.locals.db;
 
     // 检查权限
     const novel = db.prepare(`
@@ -379,7 +377,6 @@ router.put('/:id/chapters/:chapterId', async (req, res) => {
     const userId = req.user.id;
     const novelId = req.params.id;
     const chapterId = req.params.chapterId;
-    const db = req.app.locals.db;
 
     // 检查权限
     const chapter = db.prepare(`
@@ -446,7 +443,6 @@ router.get('/:id/state-files', async (req, res) => {
   try {
     const userId = req.user.id;
     const novelId = req.params.id;
-    const db = req.app.locals.db;
 
     // 检查权限
     const novel = db.prepare(`
@@ -479,7 +475,6 @@ router.get('/:id/state-files/:name', async (req, res) => {
     const userId = req.user.id;
     const novelId = req.params.id;
     const fileName = req.params.name;
-    const db = req.app.locals.db;
 
     // 检查权限
     const novel = db.prepare(`
@@ -516,7 +511,6 @@ router.put('/:id/state-files/:name', async (req, res) => {
     const novelId = req.params.id;
     const fileName = req.params.name;
     const { content } = req.body;
-    const db = req.app.locals.db;
 
     // 检查权限
     const novel = db.prepare(`
@@ -567,7 +561,6 @@ router.post('/:id/chapters/:chapterId/sessions', async (req, res) => {
     const novelId = req.params.id;
     const chapterId = req.params.chapterId;
     const { prompt } = req.body;
-    const db = req.app.locals.db;
 
     // 检查权限
     const chapter = db.prepare(`

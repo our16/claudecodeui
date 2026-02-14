@@ -7,11 +7,11 @@
 import { useState, useEffect, useContext, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import WebSocketContext from '../../contexts/WebSocketContext';
-import { Send, StopCircle, RotateCw, Save } from 'lucide-react';
+import { Send, StopCircle, RotateCw, Save, FileText } from 'lucide-react';
 
 export default function ChapterEditor({ novel, chapter, stateFiles }) {
   const { user } = useAuth();
-  const { sendMessage, isConnected } = useContext(WebSocketContext) || { sendMessage: () => {}, isConnected: false };
+  const { sendMessage, isConnected, latestMessage } = useContext(WebSocketContext) || { sendMessage: () => {}, isConnected: false, latestMessage: null };
   const messagesEndRef = useRef(null);
 
   // 状态管理
@@ -29,7 +29,7 @@ export default function ChapterEditor({ novel, chapter, stateFiles }) {
       try {
         const response = await fetch(`/api/novels/${novel.id}/chapters/${chapter.id}/sessions`, {
           headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
+            'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
           }
         });
         const data = await response.json();
@@ -113,33 +113,28 @@ export default function ChapterEditor({ novel, chapter, stateFiles }) {
 
   // WebSocket 消息处理
   useEffect(() => {
-    if (!isConnected) return;
+    if (!latestMessage) return;
 
-    const handleMessage = (message) => {
-      if (message.type === 'claude-response') {
-        // AI 响应消息
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: message.data.content || '',
-          timestamp: new Date().toISOString()
-        }]);
+    if (latestMessage.type === 'claude-response') {
+      // AI 响应消息
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: latestMessage.data.content || '',
+        timestamp: new Date().toISOString()
+      }]);
 
-        // 如果包含章节内容，更新预览
-        if (message.data.chapterContent) {
-          setChapterContent(message.data.chapterContent);
-        }
-      } else if (message.type === 'claude-complete') {
-        // AI 写作完成
-        setIsWriting(false);
-      } else if (message.type === 'session-created') {
-        // 会话创建
-        console.log('Session created:', message.sessionId);
+      // 如果包含章节内容，更新预览
+      if (latestMessage.data.chapterContent) {
+        setChapterContent(latestMessage.data.chapterContent);
       }
-    };
-
-    const cleanup = on(handleMessage);
-    return cleanup;
-  }, [isConnected, on, chapter]);
+    } else if (latestMessage.type === 'claude-complete') {
+      // AI 写作完成
+      setIsWriting(false);
+    } else if (latestMessage.type === 'session-created') {
+      // 会话创建
+      console.log('Session created:', latestMessage.sessionId);
+    }
+  }, [latestMessage]);
 
   if (!chapter) {
     return (
