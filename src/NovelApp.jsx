@@ -7,13 +7,12 @@
 
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { BookOpen, Plus, Settings, Home, PenTool } from 'lucide-react';
+import { BookOpen, Plus, Home, PenTool } from 'lucide-react';
 
 // Import Novel Platform Components
 import NovelHome from './components/novel/NovelHome';
 import NovelWorkspace from './components/novel/NovelWorkspace';
 import NovelCreationWizard from './components/novel/NovelCreationWizard';
-import NovelSettings from './components/novel/NovelSettings';
 
 // Import Contexts
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -24,8 +23,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 // Main Navigation Configuration
 const MAIN_NAV = [
   { id: 'home', path: '/novels', label: 'My Novels', icon: Home },
-  { id: 'create', path: '/novels/new', label: 'Create Novel', icon: Plus },
-  { id: 'settings', path: '/settings', label: 'Settings', icon: Settings }
+  { id: 'create', path: '/novels/new', label: 'Create Novel', icon: Plus }
 ];
 
 function NovelApp() {
@@ -44,8 +42,6 @@ function NovelApp() {
       } else {
         setActiveNav('home');
       }
-    } else if (path.startsWith('/settings')) {
-      setActiveNav('settings');
     } else {
       setActiveNav('home');
     }
@@ -91,12 +87,7 @@ function NovelApp() {
 
         {/* Right Actions */}
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/settings')}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-          >
-            <Settings className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-          </button>
+          {/* Settings are now accessible from the workspace sidebar */}
         </div>
       </header>
 
@@ -129,16 +120,6 @@ function NovelApp() {
             element={
               <ProtectedRoute>
                 <NovelWorkspace />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* Novel Settings */}
-          <Route
-            path="/settings"
-            element={
-              <ProtectedRoute>
-                <NovelSettings />
               </ProtectedRoute>
             }
           />

@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, BookOpen, Edit2, Trash2, Settings } from 'lucide-react';
 
-export default function NovelSidebar({ novels, currentNovel, onNovelChange }) {
+export default function NovelSidebar({ novels, currentNovel, onNovelChange, onShowSettings }) {
   const navigate = useNavigate();
   const [showNewModal, setShowNewModal] = useState(false);
 
@@ -85,7 +85,7 @@ export default function NovelSidebar({ novels, currentNovel, onNovelChange }) {
       {/* 底部操作 */}
       <div className="p-4 border-t border-gray-200 dark:border-gray-700">
         <button
-          onClick={() => navigate('/settings')}
+          onClick={onShowSettings}
           className="w-full px-4 py-2 flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
         >
           <Settings className="w-4 h-4" />

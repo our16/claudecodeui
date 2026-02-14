@@ -45,6 +45,17 @@ router.get('/', async (req, res) => {
       // Encode the project path for use with sessions API (replace : / and \ with -)
       // Matches the .claude directory structure: F:/workspace-test → F--workspace-test
       const encodedName = projectPath.replace(/[\/\\:]/g, '-');
+
+      // Debug logging
+      console.log('Novel encoding debug:', {
+        id: novel.id,
+        name: novel.name,
+        displayName: novel.displayName,
+        projectPath: novel.projectPath,
+        effectivePath: projectPath,
+        encodedName: encodedName
+      });
+
       return {
         id: novel.id,
         name: encodedName,                // 用于sessions API的编码路径 (must be first to override spread)

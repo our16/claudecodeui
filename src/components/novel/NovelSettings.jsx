@@ -1,16 +1,13 @@
 /**
- * NovelSettings.jsx - 小说平台设置页面
+ * NovelSettings.jsx - 小说平台设置弹窗
  *
  * 小说创作的专属设置，区别于通用设置
  */
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Settings, Save, Bell, Palette, Type, Zap } from 'lucide-react';
+import { Settings, Save, Bell, Palette, Type, Zap, X } from 'lucide-react';
 
-export default function NovelSettings() {
-  const navigate = useNavigate();
-
+export default function NovelSettings({ isOpen, onClose }) {
   // 状态管理
   const [activeTab, setActiveTab] = useState('general'); // general, writing, export
   const [settings, setSettings] = useState({
@@ -46,26 +43,38 @@ export default function NovelSettings() {
     localStorage.setItem('novelSettings', JSON.stringify(newSettings));
   };
 
+  // 如果弹窗未打开，不渲染任何内容（必须在所有 hooks 之后）
+  if (!isOpen) return null;
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
-      <div className="max-w-4xl mx-auto px-4">
-        {/* 头部 */}
-        <div className="flex items-center justify-between mb-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <button
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+        aria-label="Close settings"
+      />
+
+      {/* Modal */}
+      <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-4xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <div>
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">小说平台设置</h1>
-            <p className="text-gray-500 dark:text-gray-400 mt-1">配置你的创作环境和偏好</p>
+            <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">小说平台设置</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">配置你的创作环境和偏好</p>
           </div>
           <button
-            onClick={() => navigate('/novels')}
-            className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+            onClick={onClose}
+            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            aria-label="Close"
           >
-            返回
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* 设置内容区 */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-          {/* 标签页 */}
+        {/* Settings content area - scrollable */}
+        <div className="flex-1 overflow-y-auto">
+          {/* Tabs */}
           <div className="flex border-b border-gray-200 dark:border-gray-700">
             {[
               { id: 'general', label: '通用设置', icon: Settings },
@@ -90,7 +99,7 @@ export default function NovelSettings() {
             })}
           </div>
 
-          {/* 设置面板内容 */}
+          {/* Settings panel content */}
           <div className="p-6">
             {activeTab === 'general' && (
               // 通用设置
@@ -249,7 +258,7 @@ export default function NovelSettings() {
             )}
           </div>
 
-          {/* 保存按钮 */}
+          {/* Save button */}
           <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-700 flex justify-end">
             <button
               onClick={() => {

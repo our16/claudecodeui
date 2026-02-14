@@ -12,6 +12,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import WebSocketContext from '../../contexts/WebSocketContext';
 import NovelSidebar from './NovelSidebar';
+import NovelSettings from './NovelSettings';
 import ChatInterface from '../ChatInterface';
 
 export default function NovelWorkspace() {
@@ -28,6 +29,7 @@ export default function NovelWorkspace() {
   const [selectedSession, setSelectedSession] = useState(null);
   const [processingSessions, setProcessingSessions] = useState(new Set());
   const [sessionsLoading, setSessionsLoading] = useState(false);
+  const [showNovelSettings, setShowNovelSettings] = useState(false);
 
   // 加载小说列表
   useEffect(() => {
@@ -89,6 +91,18 @@ export default function NovelWorkspace() {
         setSessionsLoading(true);
         // The novel's name is already encoded for API use
         const encodedProjectName = currentNovel.name;
+
+        // Debug: log currentNovel structure
+        console.log('Current novel data:', {
+          id: currentNovel.id,
+          name: currentNovel.name,
+          displayName: currentNovel.displayName,
+          projectPath: currentNovel.projectPath,
+          path: currentNovel.path,
+          fullPath: currentNovel.fullPath,
+          encodedProjectName: encodedProjectName
+        });
+
         console.log('Loading sessions for novel project:', encodedProjectName);
 
         const response = await fetch(`/api/projects/${encodedProjectName}/sessions?limit=10&offset=0`, {
@@ -180,7 +194,7 @@ export default function NovelWorkspace() {
   };
 
   const handleShowSettings = () => {
-    navigate('/settings');
+    setShowNovelSettings(true);
   };
 
   if (loading) {
@@ -201,6 +215,7 @@ export default function NovelWorkspace() {
         novels={novels}
         currentNovel={currentNovel}
         onNovelChange={handleNovelChange}
+        onShowSettings={handleShowSettings}
       />
 
       {/* 中间：工作空间 */}
@@ -268,6 +283,12 @@ export default function NovelWorkspace() {
           </div>
         </div>
       )}
+
+      {/* 小说平台设置弹窗 */}
+      <NovelSettings
+        isOpen={showNovelSettings}
+        onClose={() => setShowNovelSettings(false)}
+      />
     </div>
   );
 }
