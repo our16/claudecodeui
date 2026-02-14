@@ -3,7 +3,7 @@
  *
  * 在项目工作台显示当前小说的详细信息：
  * - 小说名字、简介
- * - 主角信息（从 characters.md 状态文件获取）
+ * - 状态文件列表（角色、世界观、时间线等）
  * - 卷大纲列表（从 volumes 目录读取）
  * - 章节内容列表
  */
@@ -11,17 +11,28 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, BookOpen, User, ChevronDown, ChevronRight,
-  CheckCircle, Clock, Edit3, Circle
+  ArrowLeft, BookOpen, Users, Globe, Clock,
+  ChevronDown, ChevronRight, FileText,
+  CheckCircle, Edit3, Circle, X
 } from 'lucide-react';
 
-export default function NovelInfoSidebar({ currentNovel }) {
+// 状态文件类型配置
+const STATE_FILE_TYPES = {
+  characters: { icon: Users, label: '角色', color: 'text-purple-600 dark:text-purple-400', bgColor: 'bg-purple-100 dark:bg-purple-900/30' },
+  timeline: { icon: Clock, label: '时间线', color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-100 dark:bg-blue-900/30' },
+  world_rules: { icon: Globe, label: '世界观', color: 'text-green-600 dark:text-green-400', bgColor: 'bg-green-100 dark:bg-green-900/30' },
+  glossary: { icon: BookOpen, label: '术语表', color: 'text-orange-600 dark:text-orange-400', bgColor: 'bg-orange-100 dark:bg-orange-900/30' },
+  custom: { icon: FileText, label: '自定义', color: 'text-gray-600 dark:text-gray-400', bgColor: 'bg-gray-100 dark:bg-gray-700' }
+};
+
+export default function NovelInfoSidebar({ currentNovel, onStateFileSelect }) {
   const navigate = useNavigate();
   const [volumes, setVolumes] = useState([]);
-  const [characters, setCharacters] = useState(null);
+  const [stateFiles, setStateFiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedVolumes, setExpandedVolumes] = useState({});
   const [selectedChapter, setSelectedChapter] = useState(null);
+  const [chapterContentModal, setChapterContentModal] = useState({ show: false, chapter: null, content: '', loading: false });
 
   // 返回项目列表
   const handleBackToList = () => {
@@ -60,24 +71,24 @@ export default function NovelInfoSidebar({ currentNovel }) {
           }
         }
 
-        // 加载角色数据（从 characters.md 状态文件）
+        // 加载状态文件列表
         try {
-          const charactersResponse = await fetch(`/api/novels/${currentNovel.id}/state-files/characters.md`, {
+          const stateFilesResponse = await fetch(`/api/novels/${currentNovel.id}/state-files`, {
             headers: {
               'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
             }
           });
 
-          if (!charactersResponse.ok) {
-            console.warn('Characters API error:', charactersResponse.status);
+          if (!stateFilesResponse.ok) {
+            console.warn('State files API error:', stateFilesResponse.status);
           } else {
-            const charactersData = await charactersResponse.json();
-            if (charactersData.content) {
-              setCharacters(parseCharactersData(charactersData.content));
+            const stateFilesData = await stateFilesResponse.json();
+            if (stateFilesData.stateFiles) {
+              setStateFiles(stateFilesData.stateFiles);
             }
           }
         } catch (error) {
-          console.warn('Failed to load characters:', error);
+          console.warn('Failed to load state files:', error);
         }
       } catch (error) {
         console.error('Failed to load novel info:', error);
@@ -89,39 +100,49 @@ export default function NovelInfoSidebar({ currentNovel }) {
     loadData();
   }, [currentNovel]);
 
-  // 解析角色数据（简单的 Markdown 解析）
-  const parseCharactersData = (content) => {
-    const lines = content.split('\n');
-    const result = {
-      protagonist: null,
-      supporting: []
-    };
-
-    let currentSection = null;
-
-    for (const line of lines) {
-      if (line.includes('主角') || line.toLowerCase().includes('protagonist')) {
-        currentSection = 'protagonist';
-      } else if (line.includes('配角') || line.toLowerCase().includes('supporting')) {
-        currentSection = 'supporting';
-      } else if (line.startsWith('##') || line.startsWith('#')) {
-        continue;
-      } else if (line.trim() && currentSection === 'protagonist' && !result.protagonist) {
-        result.protagonist = line.trim();
-      } else if (line.trim() && currentSection === 'supporting' && line.startsWith('-')) {
-        result.supporting.push(line.trim().replace(/^-\s*/, ''));
-      }
-    }
-
-    return result;
-  };
-
   // 切换卷展开/收起
   const toggleVolume = (volumeName) => {
     setExpandedVolumes(prev => ({
       ...prev,
       [volumeName]: !prev[volumeName]
     }));
+  };
+
+  // 获取章节正文内容
+  const fetchChapterContent = async (volumeName, chapterNumber) => {
+    if (!currentNovel) return;
+
+    setChapterContentModal({ show: true, chapter: { volumeName, number: chapterNumber }, content: '', loading: true });
+
+    try {
+      const response = await fetch(`/api/novels/${currentNovel.id}/chapters/${volumeName}/${chapterNumber}/content`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setChapterContentModal(prev => ({ ...prev, content: data.content, loading: false }));
+      } else {
+        setChapterContentModal(prev => ({ ...prev, content: '无法加载章节内容', loading: false }));
+      }
+    } catch (error) {
+      console.error('Failed to fetch chapter content:', error);
+      setChapterContentModal(prev => ({ ...prev, content: '加载失败', loading: false }));
+    }
+  };
+
+  // 处理章节点击
+  const handleChapterClick = (volumeName, chapter) => {
+    // 如果章节有内容，显示正文弹窗
+    if (chapter.contentCreated) {
+      fetchChapterContent(volumeName, chapter.number);
+    } else {
+      // 否则切换大纲展开/收起
+      const chapterKey = `${volumeName}-${chapter.number}`;
+      setSelectedChapter(prev => prev === chapterKey ? null : chapterKey);
+    }
   };
 
   // 获取章节状态图标和颜色
@@ -240,20 +261,35 @@ export default function NovelInfoSidebar({ currentNovel }) {
 
       {/* 可滚动内容区域 */}
       <div className="flex-1 overflow-y-auto">
-        {/* 主角信息 */}
+        {/* 状态文件列表 */}
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-2 mb-3">
-            <User className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-            <h3 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">主角信息</h3>
+            <FileText className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+            <h3 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">状态文件</h3>
           </div>
-          {characters?.protagonist ? (
-            <p className="text-sm text-gray-700 dark:text-gray-300 pl-6">
-              {characters.protagonist}
-            </p>
+          {stateFiles.length === 0 ? (
+            <p className="text-xs text-gray-500 dark:text-gray-400 pl-6">暂无状态文件</p>
           ) : (
-            <p className="text-xs text-gray-500 dark:text-gray-400 pl-6">
-              暂无主角信息
-            </p>
+            <div className="space-y-1.5 pl-6">
+              {stateFiles.map((sf) => {
+                const config = STATE_FILE_TYPES[sf.type] || STATE_FILE_TYPES.custom;
+                const Icon = config.icon;
+                return (
+                  <button
+                    key={sf.name}
+                    onClick={() => onStateFileSelect?.(sf.name)}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
+                  >
+                    <div className={`p-1 rounded ${config.bgColor}`}>
+                      <Icon className={`w-3.5 h-3.5 ${config.color}`} />
+                    </div>
+                    <span className="text-xs text-gray-700 dark:text-gray-300 truncate flex-1">
+                      {sf.name}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           )}
         </div>
 
@@ -324,7 +360,7 @@ export default function NovelInfoSidebar({ currentNovel }) {
                             <div key={chapter.number}>
                               <div
                                 className={`px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors cursor-pointer ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
-                                onClick={() => setSelectedChapter(isSelected ? null : `${volume.name}-${chapter.number}`)}
+                                onClick={() => handleChapterClick(volume.name, chapter)}
                               >
                                 <div className="flex items-start gap-2">
                                   <StatusIcon className={`w-4 h-4 mt-0.5 flex-shrink-0 ${statusInfo.color}`} />

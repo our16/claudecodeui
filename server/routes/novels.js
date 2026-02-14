@@ -836,4 +836,47 @@ router.get('/:id/volumes', async (req, res) => {
   }
 });
 
+/**
+ * 获取章节内容
+ * GET /api/novels/:id/chapters/:volumeName/:chapterNumber/content
+ *
+ * 从文件系统读取章节正文内容
+ */
+router.get('/:id/chapters/:volumeName/:chapterNumber/content', async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const novelId = req.params.id;
+    const { volumeName, chapterNumber } = req.params;
+
+    // 获取小说信息（包含工作目录路径）
+    const novel = db.prepare(`
+      SELECT id, project_path FROM novels WHERE id = ? AND user_id = ?
+    `).get(novelId, userId);
+
+    if (!novel) {
+      return res.status(404).json({ error: 'Novel not found' });
+    }
+
+    const projectPath = novel.project_path;
+    if (!projectPath) {
+      return res.status(400).json({ error: 'Novel has no project path configured' });
+    }
+
+    const fs = (await import('fs')).promises;
+    const path = (await import('path'));
+    const chapterFile = path.join(projectPath, 'volumes', volumeName, `ch${String(chapterNumber).padStart(2, '0')}.md`);
+
+    // 读取章节内容
+    try {
+      const content = await fs.readFile(chapterFile, 'utf-8');
+      res.json({ content, chapterNumber, volumeName });
+    } catch {
+      res.status(404).json({ error: 'Chapter content not found' });
+    }
+  } catch (error) {
+    console.error('Error reading chapter content:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

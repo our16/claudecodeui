@@ -29,6 +29,7 @@ export default function NovelWorkspace() {
   const [processingSessions, setProcessingSessions] = useState(new Set());
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [showNovelSettings, setShowNovelSettings] = useState(false);
+  const [selectedStateFile, setSelectedStateFile] = useState(null);
 
   // 加载当前小说
   useEffect(() => {
@@ -174,6 +175,26 @@ export default function NovelWorkspace() {
     setShowNovelSettings(true);
   };
 
+  // 处理状态文件选择 - 在右侧面板显示文件内容
+  const handleStateFileSelect = async (fileName) => {
+    if (!currentNovel) return;
+
+    try {
+      const response = await fetch(`/api/novels/${currentNovel.id}/state-files/${fileName}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSelectedStateFile({ name: fileName, content: data.content });
+      }
+    } catch (error) {
+      console.error('Failed to load state file:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -190,6 +211,7 @@ export default function NovelWorkspace() {
       {/* 左侧：小说信息 */}
       <NovelInfoSidebar
         currentNovel={currentNovel}
+        onStateFileSelect={handleStateFileSelect}
       />
 
       {/* 中间：工作空间 */}
@@ -254,6 +276,28 @@ export default function NovelWorkspace() {
                 {currentChapter.currentWordCount || 0} / {currentChapter.targetWordCount || 3000} 字
               </p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 状态文件查看面板 */}
+      {selectedStateFile && (
+        <div className="w-96 border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex flex-col overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+            <h3 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">
+              {selectedStateFile.name}
+            </h3>
+            <button
+              onClick={() => setSelectedStateFile(null)}
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            <pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-mono">
+              {selectedStateFile.content || '(空文件)'}
+            </pre>
           </div>
         </div>
       )}
