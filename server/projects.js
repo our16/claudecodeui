@@ -202,6 +202,57 @@ function clearProjectDirectoryCache() {
   projectDirectoryCache.clear();
 }
 
+// In-memory cache for session messages with LRU eviction
+const sessionMessagesCache = new Map();
+const MAX_CACHE_SIZE = 50; // Maximum number of sessions to cache
+const cacheAccessOrder = new Map(); // Track access order for LRU
+
+function getCachedSessionMessages(cacheKey) {
+  if (sessionMessagesCache.has(cacheKey)) {
+    // Update access order
+    cacheAccessOrder.set(cacheKey, Date.now());
+    return sessionMessagesCache.get(cacheKey);
+  }
+  return null;
+}
+
+function setCachedSessionMessages(cacheKey, messages) {
+  // Check if we need to evict
+  if (sessionMessagesCache.size >= MAX_CACHE_SIZE && !sessionMessagesCache.has(cacheKey)) {
+    // Find and remove least recently used entry
+    let oldestKey = null;
+    let oldestTime = Infinity;
+    for (const [key, time] of cacheAccessOrder.entries()) {
+      if (time < oldestTime) {
+        oldestTime = time;
+        oldestKey = key;
+      }
+    }
+    if (oldestKey) {
+      sessionMessagesCache.delete(oldestKey);
+      cacheAccessOrder.delete(oldestKey);
+    }
+  }
+
+  sessionMessagesCache.set(cacheKey, messages);
+  cacheAccessOrder.set(cacheKey, Date.now());
+}
+
+function clearSessionMessagesCache(projectName = null) {
+  if (projectName) {
+    // Clear all cache entries for this project
+    for (const key of sessionMessagesCache.keys()) {
+      if (key.startsWith(`${projectName}:`)) {
+        sessionMessagesCache.delete(key);
+        cacheAccessOrder.delete(key);
+      }
+    }
+  } else {
+    sessionMessagesCache.clear();
+    cacheAccessOrder.clear();
+  }
+}
+
 // Load project configuration file
 async function loadProjectConfig() {
   const configPath = path.join(os.homedir(), '.claude', 'project-config.json');
@@ -601,11 +652,20 @@ async function getSessions(projectName, limit = 5, offset = 0) {
     // agent-*.jsonl files contain session start data at this point. This needs to be revisited
     // periodically to make sure only accurate data is there and no new functionality is added there
     const jsonlFiles = files.filter(file => file.endsWith('.jsonl') && !file.startsWith('agent-'));
-    
+
     if (jsonlFiles.length === 0) {
       return { sessions: [], hasMore: false, total: 0 };
     }
-    
+
+    // Trigger background index building if it doesn't exist
+    const indexPath = getSessionIndexPath(projectName);
+    try {
+      await fs.access(indexPath);
+    } catch {
+      // Index doesn't exist, build it in background
+      setImmediate(() => getOrBuildSessionIndex(projectName));
+    }
+
     // Sort files by modification time (newest first)
     const filesWithStats = await Promise.all(
       jsonlFiles.map(async (file) => {
@@ -615,37 +675,37 @@ async function getSessions(projectName, limit = 5, offset = 0) {
       })
     );
     filesWithStats.sort((a, b) => b.mtime - a.mtime);
-    
+
     const allSessions = new Map();
     const allEntries = [];
     const uuidToSessionMap = new Map();
-    
+
     // Collect all sessions and entries from all files
     for (const { file } of filesWithStats) {
       const jsonlFile = path.join(projectDir, file);
       const result = await parseJsonlSessions(jsonlFile);
-      
+
       result.sessions.forEach(session => {
         if (!allSessions.has(session.id)) {
           allSessions.set(session.id, session);
         }
       });
-      
+
       allEntries.push(...result.entries);
-      
+
       // Early exit optimization for large projects
       if (allSessions.size >= (limit + offset) * 2 && allEntries.length >= Math.min(3, filesWithStats.length)) {
         break;
       }
     }
-    
+
     // Build UUID-to-session mapping for timeline detection
     allEntries.forEach(entry => {
       if (entry.uuid && entry.sessionId) {
         uuidToSessionMap.set(entry.uuid, entry.sessionId);
       }
     });
-    
+
     // Group sessions by first user message ID
     const sessionGroups = new Map(); // firstUserMsgId -> { latestSession, allSessions[] }
     const sessionToFirstUserMsgId = new Map(); // sessionId -> firstUserMsgId
@@ -707,7 +767,7 @@ async function getSessions(projectName, limit = 5, offset = 0) {
     const total = visibleSessions.length;
     const paginatedSessions = visibleSessions.slice(offset, offset + limit);
     const hasMore = offset + limit < total;
-    
+
     return {
       sessions: paginatedSessions,
       hasMore,
@@ -874,23 +934,65 @@ async function parseJsonlSessions(filePath) {
   }
 }
 
-// Get messages for a specific session with pagination support
-async function getSessionMessages(projectName, sessionId, limit = null, offset = 0) {
+// Session index file path
+function getSessionIndexPath(projectName) {
+  return path.join(os.homedir(), '.claude', 'projects', projectName, '.session-index.json');
+}
+
+// Load or build session index for a project
+// Index maps sessionId -> { files: [jsonl files that contain this session] }
+async function getOrBuildSessionIndex(projectName) {
   const projectDir = path.join(os.homedir(), '.claude', 'projects', projectName);
+  const indexPath = getSessionIndexPath(projectName);
 
   try {
-    const files = await fs.readdir(projectDir);
-    // agent-*.jsonl files contain session start data at this point. This needs to be revisited
-    // periodically to make sure only accurate data is there and no new functionality is added there
-    const jsonlFiles = files.filter(file => file.endsWith('.jsonl') && !file.startsWith('agent-'));
-    
-    if (jsonlFiles.length === 0) {
-      return { messages: [], total: 0, hasMore: false };
+    // Try to load existing index
+    try {
+      const indexData = await fs.readFile(indexPath, 'utf8');
+      const index = JSON.parse(indexData);
+
+      // Check if index is still valid by comparing file modification times
+      const files = await fs.readdir(projectDir);
+      const jsonlFiles = files.filter(file => file.endsWith('.jsonl') && !file.startsWith('agent-'));
+
+      let indexValid = true;
+
+      // Check if all indexed files still exist and no new files
+      const indexedFiles = new Set(Object.values(index).flatMap(entry => entry.files || []));
+
+      for (const file of jsonlFiles) {
+        if (!indexedFiles.has(file)) {
+          indexValid = false;
+          break;
+        }
+      }
+
+      // Check if indexed files still exist
+      for (const file of indexedFiles) {
+        try {
+          await fs.access(path.join(projectDir, file));
+        } catch {
+          indexValid = false;
+          break;
+        }
+      }
+
+      if (indexValid) {
+        return index;
+      }
+    } catch (indexError) {
+      // Index doesn't exist or is invalid, rebuild
     }
-    
-    const messages = [];
-    
-    // Process all JSONL files to find messages for this session
+
+    // Build new index
+    console.log(`Building session index for project ${projectName}...`);
+    const startTime = Date.now();
+
+    const files = await fs.readdir(projectDir);
+    const jsonlFiles = files.filter(file => file.endsWith('.jsonl') && !file.startsWith('agent-'));
+
+    const index = {}; // sessionId -> { files: Set<string> }
+
     for (const file of jsonlFiles) {
       const jsonlFile = path.join(projectDir, file);
       const fileStream = fsSync.createReadStream(jsonlFile);
@@ -898,7 +1000,101 @@ async function getSessionMessages(projectName, sessionId, limit = null, offset =
         input: fileStream,
         crlfDelay: Infinity
       });
-      
+
+      for await (const line of rl) {
+        if (line.trim()) {
+          try {
+            const entry = JSON.parse(line);
+            if (entry.sessionId) {
+              if (!index[entry.sessionId]) {
+                index[entry.sessionId] = { files: [] };
+              }
+              if (!index[entry.sessionId].files.includes(file)) {
+                index[entry.sessionId].files.push(file);
+              }
+            }
+          } catch (parseError) {
+            // Skip malformed lines
+          }
+        }
+      }
+    }
+
+    // Save index
+    try {
+      await fs.writeFile(indexPath, JSON.stringify(index, null, 2), 'utf8');
+      console.log(`Session index built in ${Date.now() - startTime}ms`);
+    } catch (writeError) {
+      console.warn('Could not save session index:', writeError.message);
+    }
+
+    return index;
+  } catch (error) {
+    console.error('Error building session index:', error);
+    return {}; // Return empty index on error
+  }
+}
+
+// Get messages for a specific session with pagination support
+async function getSessionMessages(projectName, sessionId, limit = null, offset = 0) {
+  const cacheKey = `${projectName}:${sessionId}`;
+
+  // Check cache first
+  const cached = getCachedSessionMessages(cacheKey);
+  if (cached) {
+    console.log(`Cache hit for session ${sessionId}`);
+    const messages = cached.messages;
+
+    // Apply pagination to cached data
+    const total = messages.length;
+
+    if (limit === null) {
+      return messages;
+    }
+
+    const startIndex = Math.max(0, total - offset - limit);
+    const endIndex = total - offset;
+    const paginatedMessages = messages.slice(startIndex, endIndex);
+    const hasMore = startIndex > 0;
+
+    return {
+      messages: paginatedMessages,
+      total,
+      hasMore,
+      offset,
+      limit
+    };
+  }
+
+  const projectDir = path.join(os.homedir(), '.claude', 'projects', projectName);
+
+  try {
+    const files = await fs.readdir(projectDir);
+    // agent-*.jsonl files contain session start data at this point. This needs to be revisited
+    // periodically to make sure only accurate data is there and no new functionality is added there
+    const jsonlFiles = files.filter(file => file.endsWith('.jsonl') && !file.startsWith('agent-'));
+
+    if (jsonlFiles.length === 0) {
+      return { messages: [], total: 0, hasMore: false };
+    }
+
+    // Use session index to narrow down which files to read
+    const sessionIndex = await getOrBuildSessionIndex(projectName);
+    const filesToRead = sessionIndex[sessionId]?.files || jsonlFiles;
+
+    console.log(`Loading session ${sessionId} from ${filesToRead.length} files (out of ${jsonlFiles.length} total)`);
+
+    const messages = [];
+
+    // Only read files that contain this session
+    for (const file of filesToRead) {
+      const jsonlFile = path.join(projectDir, file);
+      const fileStream = fsSync.createReadStream(jsonlFile);
+      const rl = readline.createInterface({
+        input: fileStream,
+        crlfDelay: Infinity
+      });
+
       for await (const line of rl) {
         if (line.trim()) {
           try {
@@ -912,26 +1108,29 @@ async function getSessionMessages(projectName, sessionId, limit = null, offset =
         }
       }
     }
-    
+
     // Sort messages by timestamp
-    const sortedMessages = messages.sort((a, b) => 
+    const sortedMessages = messages.sort((a, b) =>
       new Date(a.timestamp || 0) - new Date(b.timestamp || 0)
     );
-    
+
+    // Cache the full result
+    setCachedSessionMessages(cacheKey, { messages: sortedMessages });
+
     const total = sortedMessages.length;
-    
+
     // If no limit is specified, return all messages (backward compatibility)
     if (limit === null) {
       return sortedMessages;
     }
-    
+
     // Apply pagination - for recent messages, we need to slice from the end
     // offset 0 should give us the most recent messages
     const startIndex = Math.max(0, total - offset - limit);
     const endIndex = total - offset;
     const paginatedMessages = sortedMessages.slice(startIndex, endIndex);
     const hasMore = startIndex > 0;
-    
+
     return {
       messages: paginatedMessages,
       total,
@@ -966,21 +1165,23 @@ async function renameProject(projectName, newDisplayName) {
 // Delete a session from a project
 async function deleteSession(projectName, sessionId) {
   const projectDir = path.join(os.homedir(), '.claude', 'projects', projectName);
-  
+
   try {
     const files = await fs.readdir(projectDir);
     const jsonlFiles = files.filter(file => file.endsWith('.jsonl'));
-    
+
     if (jsonlFiles.length === 0) {
       throw new Error('No session files found for this project');
     }
-    
+
+    let sessionDeleted = false;
+
     // Check all JSONL files to find which one contains the session
     for (const file of jsonlFiles) {
       const jsonlFile = path.join(projectDir, file);
       const content = await fs.readFile(jsonlFile, 'utf8');
       const lines = content.split('\n').filter(line => line.trim());
-      
+
       // Check if this file contains the session
       const hasSession = lines.some(line => {
         try {
@@ -990,7 +1191,7 @@ async function deleteSession(projectName, sessionId) {
           return false;
         }
       });
-      
+
       if (hasSession) {
         // Filter out all entries for this session
         const filteredLines = lines.filter(line => {
@@ -1001,18 +1202,40 @@ async function deleteSession(projectName, sessionId) {
             return true; // Keep malformed lines
           }
         });
-        
+
         // Write back the filtered content
         await fs.writeFile(jsonlFile, filteredLines.join('\n') + (filteredLines.length > 0 ? '\n' : ''));
-        return true;
+        sessionDeleted = true;
       }
     }
-    
-    throw new Error(`Session ${sessionId} not found in any files`);
+
+    if (!sessionDeleted) {
+      throw new Error(`Session ${sessionId} not found in any files`);
+    }
+
+    // Clear cache for this session
+    clearSessionMessagesCacheForProjectAndSession(projectName, sessionId);
+
+    // Invalidate session index
+    try {
+      const indexPath = getSessionIndexPath(projectName);
+      await fs.unlink(indexPath);
+    } catch {
+      // Index file may not exist, ignore
+    }
+
+    return true;
   } catch (error) {
     console.error(`Error deleting session ${sessionId} from project ${projectName}:`, error);
     throw error;
   }
+}
+
+// Clear cache for specific project and session
+function clearSessionMessagesCacheForProjectAndSession(projectName, sessionId) {
+  const cacheKey = `${projectName}:${sessionId}`;
+  sessionMessagesCache.delete(cacheKey);
+  cacheAccessOrder.delete(cacheKey);
 }
 
 // Check if a project is empty (has no sessions)
@@ -1043,6 +1266,9 @@ async function deleteProject(projectName, force = false) {
     if (!projectPath) {
       projectPath = await extractProjectDirectory(projectName);
     }
+
+    // Clear cache for this project
+    clearSessionMessagesCache(projectName);
 
     // Remove the project directory (includes all Claude sessions)
     await fs.rm(projectDir, { recursive: true, force: true });
@@ -1678,6 +1904,7 @@ export {
   saveProjectConfig,
   extractProjectDirectory,
   clearProjectDirectoryCache,
+  clearSessionMessagesCache,
   getCodexSessions,
   getCodexSessionMessages,
   deleteCodexSession
