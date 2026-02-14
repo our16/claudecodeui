@@ -139,16 +139,10 @@ export default function NovelInfoSidebar({ currentNovel, onStateFileSelect }) {
     }
   };
 
-  // 处理章节点击
+  // 处理章节点击 - 切换大纲展开/收起
   const handleChapterClick = (volumeName, chapter) => {
-    // 如果章节有内容，显示正文弹窗
-    if (chapter.contentCreated) {
-      fetchChapterContent(volumeName, chapter.number);
-    } else {
-      // 否则切换大纲展开/收起
-      const chapterKey = `${volumeName}-${chapter.number}`;
-      setSelectedChapter(prev => prev === chapterKey ? null : chapterKey);
-    }
+    const chapterKey = `${volumeName}-${chapter.number}`;
+    setSelectedChapter(prev => prev === chapterKey ? null : chapterKey);
   };
 
   // 获取章节状态图标和颜色
@@ -427,6 +421,21 @@ export default function NovelInfoSidebar({ currentNovel, onStateFileSelect }) {
                                                 </span>
                                               ))}
                                             </div>
+                                          </div>
+                                        )}
+                                        {/* 查看正文按钮 */}
+                                        {chapter.contentCreated && (
+                                          <div className="pt-2 mt-2 border-t border-gray-200 dark:border-gray-600">
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                fetchChapterContent(volume.name, chapter.number);
+                                              }}
+                                              className="w-full px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-xs rounded transition-colors flex items-center justify-center gap-1.5"
+                                            >
+                                              <BookOpen className="w-3.5 h-3.5" />
+                                              查看正文
+                                            </button>
                                           </div>
                                         )}
                                       </div>
