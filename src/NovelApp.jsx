@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { BookOpen, Plus, Home, PenTool } from 'lucide-react';
+import { BookOpen, Home, PenTool } from 'lucide-react';
 
 // Import Novel Platform Components
 import NovelHome from './components/novel/NovelHome';
@@ -22,8 +22,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 // Main Navigation Configuration
 const MAIN_NAV = [
-  { id: 'home', path: '/novels', label: 'My Novels', icon: Home },
-  { id: 'create', path: '/novels/new', label: 'Create Novel', icon: Plus }
+  { id: 'home', path: '/novels', label: '主页', icon: Home }
 ];
 
 function NovelApp() {
@@ -67,18 +66,19 @@ function NovelApp() {
           <nav className="flex gap-1">
             {MAIN_NAV.map((item) => {
               const Icon = item.icon;
+              const isActive = activeNav === item.id;
               return (
                 <button
                   key={item.id}
                   onClick={() => navigate(item.path)}
                   className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors ${
-                    activeNav === item.id
+                    isActive
                       ? 'bg-blue-500 text-white'
                       : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                   }`}
                 >
                   <Icon className="w-4 h-4" />
-                  <span>{item.label}</span>
+                  <span>{isActive ? item.label : `回到${item.label}`}</span>
                 </button>
               );
             })}

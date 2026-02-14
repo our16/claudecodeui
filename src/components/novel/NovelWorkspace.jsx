@@ -11,7 +11,7 @@ import { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import WebSocketContext from '../../contexts/WebSocketContext';
-import NovelSidebar from './NovelSidebar';
+import NovelInfoSidebar from './NovelInfoSidebar';
 import NovelSettings from './NovelSettings';
 import ChatInterface from '../ChatInterface';
 
@@ -22,7 +22,6 @@ export default function NovelWorkspace() {
   const navigate = useNavigate();
 
   // 状态管理
-  const [novels, setNovels] = useState([]);
   const [currentNovel, setCurrentNovel] = useState(null);
   const [currentChapter, setCurrentChapter] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -31,56 +30,34 @@ export default function NovelWorkspace() {
   const [sessionsLoading, setSessionsLoading] = useState(false);
   const [showNovelSettings, setShowNovelSettings] = useState(false);
 
-  // 加载小说列表
+  // 加载当前小说
   useEffect(() => {
-    if (!user) return;
+    if (!user || !novelId) return;
 
-    const fetchNovels = async () => {
+    const fetchNovel = async () => {
       try {
-        const response = await fetch('/api/novels', {
+        const response = await fetch(`/api/novels/${novelId}`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
           }
         });
         const data = await response.json();
-        if (data.novels) {
-          setNovels(data.novels);
-          // 设置当前小说
-          if (novelId) {
-            // 尝试通过 id 或 _id 查找
-            const novel = data.novels.find(n => n.id === novelId || n._id === novelId || String(n.id) === String(novelId) || String(n._id) === String(novelId));
-            console.log('Looking for novel with ID:', novelId, 'Found:', novel, 'Available novels:', data.novels);
-            if (novel) {
-              setCurrentNovel(novel);
-            } else {
-              console.warn('Novel not found with ID:', novelId);
-              // 如果找不到，使用第一个小说
-              if (data.novels.length > 0) {
-                console.log('Falling back to first novel');
-                setCurrentNovel(data.novels[0]);
-              }
-            }
-          } else if (data.novels.length > 0) {
-            setCurrentNovel(data.novels[0]);
-            navigate(`/novel/${data.novels[0].id}`);
-          }
+        if (data.novel) {
+          setCurrentNovel(data.novel);
+        } else {
+          // 如果找不到，返回项目列表
+          navigate('/novels');
         }
       } catch (error) {
-        console.error('Failed to fetch novels:', error);
+        console.error('Failed to fetch novel:', error);
+        navigate('/novels');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchNovels();
-  }, [user, novelId]);
-
-  // 切换小说
-  const handleNovelChange = (novel) => {
-    setCurrentNovel(novel);
-    setCurrentChapter(null);
-    navigate(`/novel/${novel.id}`);
-  };
+    fetchNovel();
+  }, [user, novelId, navigate]);
 
   // Load sessions for the current novel project
   useEffect(() => {
@@ -210,12 +187,9 @@ export default function NovelWorkspace() {
 
   return (
     <div className="flex h-full bg-gray-50 dark:bg-gray-900 overflow-hidden">
-      {/* 左侧：小说列表 */}
-      <NovelSidebar
-        novels={novels}
+      {/* 左侧：小说信息 */}
+      <NovelInfoSidebar
         currentNovel={currentNovel}
-        onNovelChange={handleNovelChange}
-        onShowSettings={handleShowSettings}
       />
 
       {/* 中间：工作空间 */}

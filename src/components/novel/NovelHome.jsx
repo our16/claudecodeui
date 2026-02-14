@@ -6,7 +6,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, BookOpen, Edit2, Trash2 } from 'lucide-react';
+import { BookOpen, Edit2, Trash2 } from 'lucide-react';
 import { api, authenticatedFetch } from '../../utils/api';
 
 export default function NovelHome() {
@@ -96,13 +96,6 @@ export default function NovelHome() {
                 共 {stats.total} 部作品 · {stats.totalChapters} 章 · {stats.totalWords.toLocaleString()} 字
               </p>
             </div>
-            <button
-              onClick={() => navigate('/novels/new')}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center gap-2"
-            >
-              <Plus className="w-5 h-5" />
-              创建新小说
-            </button>
           </div>
 
           {/* 搜索和筛选 */}
