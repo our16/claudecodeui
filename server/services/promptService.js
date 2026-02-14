@@ -119,10 +119,7 @@ export class PromptService {
       // 额外的 SDK 选项
       options: {
         cwd: projectPath || (novelInfo?.project_path),
-        systemPrompt: {
-          type: 'preset',
-          preset: 'claude_code'  // 使用 SDK 的 preset 模式
-        },
+        systemPrompt: promptConfig.systemPrompt,  // 使用自定义系统提示词
         settingSources: ['project', 'user', 'local']
       }
     };
