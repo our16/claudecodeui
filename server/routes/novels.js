@@ -162,8 +162,8 @@ router.post('/', async (req, res) => {
     `).get(novelId);
 
     // Encode the project path for use with sessions API
-    const projectPath = novel.project_path || `novel:${novel.id}`;
-    const encodedName = projectPath.replace(/[\/\\:]/g, '-');
+    const effectiveProjectPath = projectPath || `novel:${novel.id}`;
+    const encodedName = effectiveProjectPath.replace(/[\/\\:]/g, '-');
 
     res.status(201).json({
       novel: {
@@ -173,7 +173,7 @@ router.post('/', async (req, res) => {
         description: novel.description,
         genre: novel.genre,
         projectPath: novel.project_path,
-        path: projectPath,
+        path: effectiveProjectPath,
         fullPath: novel.project_path,
         createdAt: novel.created_at,
         updatedAt: novel.updated_at,
