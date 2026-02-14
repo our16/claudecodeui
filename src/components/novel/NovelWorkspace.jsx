@@ -27,6 +27,7 @@ export default function NovelWorkspace() {
   const [loading, setLoading] = useState(true);
   const [selectedSession, setSelectedSession] = useState(null);
   const [processingSessions, setProcessingSessions] = useState(new Set());
+  const [sessionsLoading, setSessionsLoading] = useState(false);
 
   // 加载小说列表
   useEffect(() => {
@@ -79,6 +80,46 @@ export default function NovelWorkspace() {
     navigate(`/novel/${novel.id}`);
   };
 
+  // Load sessions for the current novel project
+  useEffect(() => {
+    if (!currentNovel) return;
+
+    const loadSessions = async () => {
+      try {
+        setSessionsLoading(true);
+        // The novel's name is already encoded for API use
+        const encodedProjectName = currentNovel.name;
+        console.log('Loading sessions for novel project:', encodedProjectName);
+
+        const response = await fetch(`/api/projects/${encodedProjectName}/sessions?limit=10&offset=0`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+          }
+        });
+
+        const data = await response.json();
+        console.log('Sessions response:', data);
+
+        if (data.sessions && data.sessions.length > 0) {
+          // Auto-select the most recent session (first in the list)
+          const mostRecentSession = data.sessions[0];
+          console.log('Auto-selecting most recent session:', mostRecentSession.id);
+          setSelectedSession(mostRecentSession);
+        } else {
+          // No sessions found, clear the selected session
+          setSelectedSession(null);
+        }
+      } catch (error) {
+        console.error('Failed to load sessions:', error);
+        // On error, don't clear existing session - might be a network issue
+      } finally {
+        setSessionsLoading(false);
+      }
+    };
+
+    loadSessions();
+  }, [currentNovel]);
+
   // ChatInterface 回调函数
   const handleFileOpen = (filePath) => {
     console.log('File opened:', filePath);
@@ -110,6 +151,28 @@ export default function NovelWorkspace() {
 
   const handleReplaceTemporarySession = (tempId, realSessionId) => {
     console.log('Replace temporary session:', tempId, 'with:', realSessionId);
+    // When a new session is created, reload sessions to get the latest data
+    if (currentNovel && realSessionId) {
+      const encodedProjectName = currentNovel.name;
+      fetch(`/api/projects/${encodedProjectName}/sessions?limit=10&offset=0`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.sessions && data.sessions.length > 0) {
+          // Find the session with the real session ID
+          const newSession = data.sessions.find(s => s.id === realSessionId);
+          if (newSession) {
+            setSelectedSession(newSession);
+          }
+        }
+      })
+      .catch(error => {
+        console.error('Failed to reload sessions after creation:', error);
+      });
+    }
   };
 
   const handleNavigateToSession = (sessionId) => {

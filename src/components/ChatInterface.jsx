@@ -26,8 +26,6 @@ import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { useDropzone } from 'react-dropzone';
 import TodoList from './TodoList';
 import ClaudeLogo from './ClaudeLogo.jsx';
-import CursorLogo from './CursorLogo.jsx';
-import CodexLogo from './CodexLogo.jsx';
 import NextTaskBanner from './NextTaskBanner.jsx';
 import { useTasksSettings } from '../contexts/TasksSettingsContext';
 import { useTranslation } from 'react-i18next';
@@ -39,7 +37,7 @@ import { api, authenticatedFetch } from '../utils/api';
 import ThinkingModeSelector, { thinkingModes } from './ThinkingModeSelector.jsx';
 import Fuse from 'fuse.js';
 import CommandMenu from './CommandMenu';
-import { CLAUDE_MODELS, CURSOR_MODELS, CODEX_MODELS } from '../../shared/modelConstants';
+import { CLAUDE_MODELS } from '../../shared/modelConstants';
 
 import { safeJsonParse } from '../lib/utils.js';
 
@@ -311,8 +309,7 @@ function formatToolInputForDisplay(input) {
   }
 }
 
-function getClaudePermissionSuggestion(message, provider) {
-  if (provider !== 'claude') return null;
+function getClaudePermissionSuggestion(message) {
   if (!message?.toolResult?.isError) return null;
 
   const toolName = message?.toolName;
@@ -496,7 +493,7 @@ const markdownComponents = {
 };
 
 // Memoized message component to prevent unnecessary re-renders
-const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFileOpen, onShowSettings, onGrantToolPermission, autoExpandTools, showRawParameters, showThinking, selectedProject, provider }) => {
+const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFileOpen, onShowSettings, onGrantToolPermission, autoExpandTools, showRawParameters, showThinking, selectedProject }) => {
   const { t } = useTranslation('chat');
   const isGrouped = prevMessage && prevMessage.type === message.type &&
                    ((prevMessage.type === 'assistant') ||
@@ -505,7 +502,7 @@ const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFile
                     (prevMessage.type === 'error'));
   const messageRef = React.useRef(null);
   const [isExpanded, setIsExpanded] = React.useState(false);
-  const permissionSuggestion = getClaudePermissionSuggestion(message, provider);
+  const permissionSuggestion = getClaudePermissionSuggestion(message);
   const [permissionGrantState, setPermissionGrantState] = React.useState('idle');
 
   React.useEffect(() => {
@@ -590,17 +587,11 @@ const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFile
                 </div>
               ) : (
                 <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm flex-shrink-0 p-1">
-                  {(localStorage.getItem('selected-provider') || 'claude') === 'cursor' ? (
-                    <CursorLogo className="w-full h-full" />
-                  ) : (localStorage.getItem('selected-provider') || 'claude') === 'codex' ? (
-                    <CodexLogo className="w-full h-full" />
-                  ) : (
-                    <ClaudeLogo className="w-full h-full" />
-                  )}
+                  <ClaudeLogo className="w-full h-full" />
                 </div>
               )}
               <div className="text-sm font-medium text-gray-900 dark:text-white">
-                {message.type === 'error' ? t('messageTypes.error') : message.type === 'tool' ? t('messageTypes.tool') : ((localStorage.getItem('selected-provider') || 'claude') === 'cursor' ? t('messageTypes.cursor') : (localStorage.getItem('selected-provider') || 'claude') === 'codex' ? t('messageTypes.codex') : t('messageTypes.claude'))}
+                {message.type === 'error' ? t('messageTypes.error') : message.type === 'tool' ? t('messageTypes.tool') : t('messageTypes.claude')}
               </div>
             </div>
           )}
@@ -1935,21 +1926,9 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
   const [visibleMessageCount, setVisibleMessageCount] = useState(100);
   const [claudeStatus, setClaudeStatus] = useState(null);
   const [thinkingMode, setThinkingMode] = useState('none');
-  const [provider, setProvider] = useState(() => {
-    return localStorage.getItem('selected-provider') || 'claude';
-  });
-  const [cursorModel, setCursorModel] = useState(() => {
-    return localStorage.getItem('cursor-model') || CURSOR_MODELS.DEFAULT;
-  });
   const [claudeModel, setClaudeModel] = useState(() => {
     return localStorage.getItem('claude-model') || CLAUDE_MODELS.DEFAULT;
   });
-  const [codexModel, setCodexModel] = useState(() => {
-    return localStorage.getItem('codex-model') || CODEX_MODELS.DEFAULT;
-  });
-  // Track provider transitions so we only clear approvals when provider truly changes.
-  // This does not sync with the backend; it just prevents UI prompts from disappearing.
-  const lastProviderRef = useRef(provider);
   // Track last loaded draft project to prevent infinite loops when loading saved input
   const lastDraftProjectRef = useRef(null);
 
@@ -1972,48 +1951,12 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
     }
   }, [selectedSession?.id]);
 
-  // When selecting a session from Sidebar, auto-switch provider to match session's origin
-  useEffect(() => {
-    if (selectedSession && selectedSession.__provider && selectedSession.__provider !== provider) {
-      setProvider(selectedSession.__provider);
-      localStorage.setItem('selected-provider', selectedSession.__provider);
-    }
-  }, [selectedSession]);
-
-  // Clear pending permission prompts when switching providers; filter when switching sessions.
-  // This does not preserve prompts across provider changes; it exists to keep the
-  // Claude approval flow intact while preventing prompts from a different provider.
-  useEffect(() => {
-    if (lastProviderRef.current !== provider) {
-      setPendingPermissionRequests([]);
-      lastProviderRef.current = provider;
-    }
-  }, [provider]);
-
   // When the selected session changes, drop prompts that belong to other sessions.
   // This does not attempt to migrate prompts across sessions; it only filters,
   // introduced so the UI does not show approvals for a session the user is no longer viewing.
   useEffect(() => {
     setPendingPermissionRequests(prev => prev.filter(req => !req.sessionId || req.sessionId === selectedSession?.id));
   }, [selectedSession?.id]);
-  
-  // Load Cursor default model from config
-  useEffect(() => {
-    if (provider === 'cursor') {
-      authenticatedFetch('/api/cursor/config')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && data.config?.model?.modelId) {
-          // Use the model from config directly
-          const modelId = data.config.model.modelId;
-          if (!localStorage.getItem('cursor-model')) {
-            setCursorModel(modelId);
-          }
-        }
-      })
-      .catch(err => console.error('Error loading Cursor config:', err));
-    }
-  }, [provider]);
 
   // Fetch slash commands on mount and when project changes
   useEffect(() => {
@@ -2300,8 +2243,8 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
         projectPath: selectedProject.path,
         projectName: selectedProject.name,
         sessionId: currentSessionId,
-        provider,
-        model: provider === 'cursor' ? cursorModel : claudeModel,
+        provider: 'claude',
+        model: claudeModel,
         tokenUsage: tokenBudget
       };
 
@@ -2349,7 +2292,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
         timestamp: Date.now()
       }]);
     }
-  }, [input, selectedProject, currentSessionId, provider, cursorModel, tokenBudget]);
+  }, [input, selectedProject, currentSessionId, claudeModel, tokenBudget]);
 
   // Handle built-in command actions
 
@@ -2960,7 +2903,6 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
     if (!hasMoreMessages || !selectedSession || !selectedProject) return false;
 
     const sessionProvider = selectedSession.__provider || 'claude';
-    if (sessionProvider === 'cursor') return false;
 
     isLoadingMoreRef.current = true;
     const previousScrollHeight = container.scrollHeight;
@@ -3025,7 +2967,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
     // Load session messages when session changes
     const loadMessages = async () => {
       if (selectedSession && selectedProject) {
-        const provider = localStorage.getItem('selected-provider') || 'claude';
+        const provider = 'claude';
 
         // Mark that we're loading a session to prevent multiple scroll triggers
         isLoadingSessionRef.current = true;
@@ -3078,38 +3020,19 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
           }
         }
         
-        if (provider === 'cursor') {
-          // For Cursor, set the session ID for resuming
-          setCurrentSessionId(selectedSession.id);
-          sessionStorage.setItem('cursorSessionId', selectedSession.id);
-          
-          // Only load messages from SQLite if this is NOT a system-initiated session change
-          // For system-initiated changes, preserve existing messages
-          if (!isSystemSessionChange) {
-            // Load historical messages for Cursor session from SQLite
-            const projectPath = selectedProject.fullPath || selectedProject.path;
-            const converted = await loadCursorSessionMessages(projectPath, selectedSession.id);
-            setSessionMessages([]);
-            setChatMessages(converted);
-          } else {
-            // Reset the flag after handling system session change
-            setIsSystemSessionChange(false);
-          }
+        // For Claude, load messages normally with pagination
+        setCurrentSessionId(selectedSession.id);
+
+        // Only load messages from API if this is a user-initiated session change
+        // For system-initiated changes, preserve existing messages and rely on WebSocket
+        if (!isSystemSessionChange) {
+          const messages = await loadSessionMessages(selectedProject.name, selectedSession.id, false, selectedSession.__provider || 'claude');
+          setSessionMessages(messages);
+          // convertedMessages will be automatically updated via useMemo
+          // Scroll will be handled by the main scroll useEffect after messages are rendered
         } else {
-          // For Claude, load messages normally with pagination
-          setCurrentSessionId(selectedSession.id);
-          
-          // Only load messages from API if this is a user-initiated session change
-          // For system-initiated changes, preserve existing messages and rely on WebSocket
-          if (!isSystemSessionChange) {
-            const messages = await loadSessionMessages(selectedProject.name, selectedSession.id, false, selectedSession.__provider || 'claude');
-            setSessionMessages(messages);
-            // convertedMessages will be automatically updated via useMemo
-            // Scroll will be handled by the main scroll useEffect after messages are rendered
-          } else {
-            // Reset the flag after handling system session change
-            setIsSystemSessionChange(false);
-          }
+          // Reset the flag after handling system session change
+          setIsSystemSessionChange(false);
         }
       } else {
         // New session view (no selected session) - always reset UI state
@@ -3147,27 +3070,19 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
     if (externalMessageUpdate > 0 && selectedSession && selectedProject) {
       const reloadExternalMessages = async () => {
         try {
-          const provider = localStorage.getItem('selected-provider') || 'claude';
+          const provider = 'claude';
 
-          if (provider === 'cursor') {
-            // Reload Cursor messages from SQLite
-            const projectPath = selectedProject.fullPath || selectedProject.path;
-            const converted = await loadCursorSessionMessages(projectPath, selectedSession.id);
-            setSessionMessages([]);
-            setChatMessages(converted);
-          } else {
-            // Reload Claude/Codex messages from API/JSONL
-            const messages = await loadSessionMessages(selectedProject.name, selectedSession.id, false, selectedSession.__provider || 'claude');
-            setSessionMessages(messages);
-            // convertedMessages will be automatically updated via useMemo
+          // Reload Claude/Codex messages from API/JSONL
+          const messages = await loadSessionMessages(selectedProject.name, selectedSession.id, false, selectedSession.__provider || 'claude');
+          setSessionMessages(messages);
+          // convertedMessages will be automatically updated via useMemo
 
-            // Smart scroll behavior: only auto-scroll if user is near bottom
-            const shouldAutoScroll = autoScrollToBottom && isNearBottom();
-            if (shouldAutoScroll) {
-              setTimeout(() => scrollToBottom(), 200);
-            }
-            // If user scrolled up, preserve their position (they're reading history)
+          // Smart scroll behavior: only auto-scroll if user is near bottom
+          const shouldAutoScroll = autoScrollToBottom && isNearBottom();
+          if (shouldAutoScroll) {
+            setTimeout(() => scrollToBottom(), 200);
           }
+          // If user scrolled up, preserve their position (they're reading history)
         } catch (error) {
           console.error('Error reloading messages from external update:', error);
         }
@@ -3584,7 +3499,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
           // Receive a tool approval request from the backend and surface it in the UI.
           // This does not approve anything automatically; it only queues a prompt,
           // introduced so the user can decide before the SDK continues.
-          if (provider !== 'claude' || !latestMessage.requestId) {
+          if (!latestMessage.requestId) {
             break;
           }
 
@@ -4490,11 +4405,10 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
       onSessionActive(sessionToActivate);
     }
 
-    // Get tools settings from localStorage based on provider
+    // Get tools settings from localStorage
     const getToolsSettings = () => {
       try {
-        const settingsKey = provider === 'cursor' ? 'cursor-tools-settings' : provider === 'codex' ? 'codex-settings' : 'claude-settings';
-        const savedSettings = safeLocalStorage.getItem(settingsKey);
+        const savedSettings = safeLocalStorage.getItem('claude-settings');
         if (savedSettings) {
           return JSON.parse(savedSettings);
         }
@@ -4510,56 +4424,21 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
 
     const toolsSettings = getToolsSettings();
 
-    // Send command based on provider
-    if (provider === 'cursor') {
-      // Send Cursor command (always use cursor-command; include resume/sessionId when replying)
-      sendMessage({
-        type: 'cursor-command',
-        command: messageContent,
-        sessionId: effectiveSessionId,
-        options: {
-          // Prefer fullPath (actual cwd for project), fallback to path
-          cwd: selectedProject.fullPath || selectedProject.path,
-          projectPath: selectedProject.fullPath || selectedProject.path,
-          sessionId: effectiveSessionId,
-          resume: !!effectiveSessionId,
-          model: cursorModel,
-          skipPermissions: toolsSettings?.skipPermissions || false,
-          toolsSettings: toolsSettings
-        }
-      });
-    } else if (provider === 'codex') {
-      // Send Codex command
-      sendMessage({
-        type: 'codex-command',
-        command: messageContent,
-        sessionId: effectiveSessionId,
-        options: {
-          cwd: selectedProject.fullPath || selectedProject.path,
-          projectPath: selectedProject.fullPath || selectedProject.path,
-          sessionId: effectiveSessionId,
-          resume: !!effectiveSessionId,
-          model: codexModel,
-          permissionMode: permissionMode === 'plan' ? 'default' : permissionMode
-        }
-      });
-    } else {
-      // Send Claude command (existing code)
-      sendMessage({
-        type: 'claude-command',
-        command: messageContent,
-        options: {
-          projectPath: selectedProject.path,
-          cwd: selectedProject.fullPath,
-          sessionId: currentSessionId,
-          resume: !!currentSessionId,
-          toolsSettings: toolsSettings,
-          permissionMode: permissionMode,
-          model: claudeModel,
-          images: uploadedImages // Pass images to backend
-        }
-      });
-    }
+    // Send Claude command
+    sendMessage({
+      type: 'claude-command',
+      command: messageContent,
+      options: {
+        projectPath: selectedProject.path,
+        cwd: selectedProject.fullPath,
+        sessionId: currentSessionId,
+        resume: !!currentSessionId,
+        toolsSettings: toolsSettings,
+        permissionMode: permissionMode,
+        model: claudeModel,
+        images: uploadedImages // Pass images to backend
+      }
+    });
 
     setInput('');
     setAttachedImages([]);
@@ -4577,14 +4456,14 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
     if (selectedProject) {
       safeLocalStorage.removeItem(`draft_input_${selectedProject.name}`);
     }
-  }, [input, isLoading, selectedProject, attachedImages, currentSessionId, selectedSession, provider, permissionMode, onSessionActive, cursorModel, claudeModel, codexModel, sendMessage, setInput, setAttachedImages, setUploadingImages, setImageErrors, setIsTextareaExpanded, textareaRef, setChatMessages, setIsLoading, setCanAbortSession, setClaudeStatus, setIsUserScrolledUp, scrollToBottom, thinkingMode]);
+  }, [input, isLoading, selectedProject, attachedImages, currentSessionId, selectedSession, permissionMode, onSessionActive, claudeModel, sendMessage, setInput, setAttachedImages, setUploadingImages, setImageErrors, setIsTextareaExpanded, textareaRef, setChatMessages, setIsLoading, setCanAbortSession, setClaudeStatus, setIsUserScrolledUp, scrollToBottom, thinkingMode]);
 
   const handleGrantToolPermission = useCallback((suggestion) => {
-    if (!suggestion || provider !== 'claude') {
+    if (!suggestion) {
       return { success: false };
     }
     return grantClaudeToolPermission(suggestion.entry);
-  }, [provider]);
+  }, []);
 
   // Send a UI decision back to the server (single or batched request IDs).
   // This does not validate tool inputs or permissions; the backend enforces rules.
@@ -4724,10 +4603,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
     // Handle Tab key for mode switching (only when dropdowns are not showing)
     if (e.key === 'Tab' && !showFileDropdown && !showCommandMenu) {
       e.preventDefault();
-      // Codex doesn't support plan mode
-      const modes = provider === 'codex'
-        ? ['default', 'acceptEdits', 'bypassPermissions']
-        : ['default', 'acceptEdits', 'bypassPermissions', 'plan'];
+      const modes = ['default', 'acceptEdits', 'bypassPermissions', 'plan'];
       const currentIndex = modes.indexOf(permissionMode);
       const nextIndex = (currentIndex + 1) % modes.length;
       const newMode = modes[nextIndex];
@@ -4803,12 +4679,6 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
   const handleInputChange = (e) => {
     const newValue = e.target.value;
     const cursorPos = e.target.selectionStart;
-
-    // Auto-select Claude provider if no session exists and user starts typing
-    if (!currentSessionId && newValue.trim() && provider === 'claude') {
-      // Provider is already set to 'claude' by default, so no need to change it
-      // The session will be created automatically when they submit
-    }
 
     setInput(newValue);
     setCursorPosition(cursorPos);
@@ -4897,16 +4767,13 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
       sendMessage({
         type: 'abort-session',
         sessionId: currentSessionId,
-        provider: provider
+        provider: 'claude'
       });
     }
   };
 
   const handleModeSwitch = () => {
-    // Codex doesn't support plan mode
-    const modes = provider === 'codex'
-      ? ['default', 'acceptEdits', 'bypassPermissions']
-      : ['default', 'acceptEdits', 'bypassPermissions', 'plan'];
+    const modes = ['default', 'acceptEdits', 'bypassPermissions', 'plan'];
     const currentIndex = modes.indexOf(permissionMode);
     const nextIndex = (currentIndex + 1) % modes.length;
     const newMode = modes[nextIndex];
@@ -4957,176 +4824,20 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
           <div className="flex items-center justify-center h-full">
             {!selectedSession && !currentSessionId && (
               <div className="text-center px-6 sm:px-4 py-8">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">{t('providerSelection.title')}</h2>
-                <p className="text-gray-600 dark:text-gray-400 mb-8">
-                  {t('providerSelection.description')}
-                </p>
-                
-                <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
-                  {/* Claude Button */}
-                  <button
-                    onClick={() => {
-                      setProvider('claude');
-                      localStorage.setItem('selected-provider', 'claude');
-                      // Focus input after selection
-                      setTimeout(() => textareaRef.current?.focus(), 100);
-                    }}
-                    className={`group relative w-64 h-32 bg-white dark:bg-gray-800 rounded-xl border-2 transition-all duration-200 hover:scale-105 hover:shadow-xl ${
-                      provider === 'claude' 
-                        ? 'border-blue-500 shadow-lg ring-2 ring-blue-500/20' 
-                        : 'border-gray-200 dark:border-gray-700 hover:border-blue-400'
-                    }`}
-                  >
-                    <div className="flex flex-col items-center justify-center h-full gap-3">
-                      <ClaudeLogo className="w-10 h-10" />
-                      <div>
-                        <p className="font-semibold text-gray-900 dark:text-white">Claude Code</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{t('providerSelection.providerInfo.anthropic')}</p>
-                      </div>
-                    </div>
-                    {provider === 'claude' && (
-                      <div className="absolute top-2 right-2">
-                        <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-                          <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                          </svg>
-                        </div>
-                      </div>
-                    )}
-                  </button>
-                  
-                  {/* Cursor Button */}
-                  <button
-                    onClick={() => {
-                      setProvider('cursor');
-                      localStorage.setItem('selected-provider', 'cursor');
-                      // Focus input after selection
-                      setTimeout(() => textareaRef.current?.focus(), 100);
-                    }}
-                    className={`group relative w-64 h-32 bg-white dark:bg-gray-800 rounded-xl border-2 transition-all duration-200 hover:scale-105 hover:shadow-xl ${
-                      provider === 'cursor' 
-                        ? 'border-purple-500 shadow-lg ring-2 ring-purple-500/20' 
-                        : 'border-gray-200 dark:border-gray-700 hover:border-purple-400'
-                    }`}
-                  >
-                    <div className="flex flex-col items-center justify-center h-full gap-3">
-                      <CursorLogo className="w-10 h-10" />
-                      <div>
-                        <p className="font-semibold text-gray-900 dark:text-white">Cursor</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{t('providerSelection.providerInfo.cursorEditor')}</p>
-                      </div>
-                    </div>
-                    {provider === 'cursor' && (
-                      <div className="absolute top-2 right-2">
-                        <div className="w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
-                          <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                          </svg>
-                        </div>
-                      </div>
-                    )}
-                  </button>
-
-                  {/* Codex Button */}
-                  <button
-                    onClick={() => {
-                      setProvider('codex');
-                      localStorage.setItem('selected-provider', 'codex');
-                      // Focus input after selection
-                      setTimeout(() => textareaRef.current?.focus(), 100);
-                    }}
-                    className={`group relative w-64 h-32 bg-white dark:bg-gray-800 rounded-xl border-2 transition-all duration-200 hover:scale-105 hover:shadow-xl ${
-                      provider === 'codex'
-                        ? 'border-gray-800 dark:border-gray-300 shadow-lg ring-2 ring-gray-800/20 dark:ring-gray-300/20'
-                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-500 dark:hover:border-gray-400'
-                    }`}
-                  >
-                    <div className="flex flex-col items-center justify-center h-full gap-3">
-                      <CodexLogo className="w-10 h-10" />
-                      <div>
-                        <p className="font-semibold text-gray-900 dark:text-white">Codex</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{t('providerSelection.providerInfo.openai')}</p>
-                      </div>
-                    </div>
-                    {provider === 'codex' && (
-                      <div className="absolute top-2 right-2">
-                        <div className="w-5 h-5 bg-gray-800 dark:bg-gray-300 rounded-full flex items-center justify-center">
-                          <svg className="w-3 h-3 text-white dark:text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                          </svg>
-                        </div>
-                      </div>
-                    )}
-                  </button>
+                {/* Claude Code - Default AI Assistant */}
+                <div className="flex flex-col items-center justify-center mb-8">
+                  <ClaudeLogo className="w-16 h-16 mb-4" />
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Claude Code</h2>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    {t('providerSelection.description')}
+                  </p>
                 </div>
 
-                {/* Model Selection - Always reserve space to prevent jumping */}
-                <div className={`mb-6 transition-opacity duration-200 ${provider ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {t('providerSelection.selectModel')}
-                  </label>
-                  {provider === 'claude' ? (
-                    <select
-                      value={claudeModel}
-                      onChange={(e) => {
-                        const newModel = e.target.value;
-                        setClaudeModel(newModel);
-                        localStorage.setItem('claude-model', newModel);
-                      }}
-                      className="pl-4 pr-10 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 min-w-[140px]"
-                    >
-                      {CLAUDE_MODELS.OPTIONS.map(({ value, label }) => (
-                        <option key={value} value={value}>{label}</option>
-                      ))}
-                    </select>
-                  ) : provider === 'codex' ? (
-                    <select
-                      value={codexModel}
-                      onChange={(e) => {
-                        const newModel = e.target.value;
-                        setCodexModel(newModel);
-                        localStorage.setItem('codex-model', newModel);
-                      }}
-                      className="pl-4 pr-10 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-gray-500 min-w-[140px]"
-                    >
-                      {CODEX_MODELS.OPTIONS.map(({ value, label }) => (
-                        <option key={value} value={value}>{label}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <select
-                      value={cursorModel}
-                      onChange={(e) => {
-                        const newModel = e.target.value;
-                        setCursorModel(newModel);
-                        localStorage.setItem('cursor-model', newModel);
-                      }}
-                      className="pl-4 pr-10 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 min-w-[140px]"
-                      disabled={provider !== 'cursor'}
-                    >
-                      {CURSOR_MODELS.OPTIONS.map(({ value, label }) => (
-                        <option key={value} value={value}>{label}</option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-                
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {provider === 'claude'
-                    ? t('providerSelection.readyPrompt.claude', { model: claudeModel })
-                    : provider === 'cursor'
-                    ? t('providerSelection.readyPrompt.cursor', { model: cursorModel })
-                    : provider === 'codex'
-                    ? t('providerSelection.readyPrompt.codex', { model: codexModel })
-                    : t('providerSelection.readyPrompt.default')
-                  }
-                </p>
-                
-                {/* Show NextTaskBanner when provider is selected and ready, only if TaskMaster is installed */}
-                {provider && tasksEnabled && isTaskMasterInstalled && (
+                {/* Show NextTaskBanner only if TaskMaster is installed */}
+                {tasksEnabled && isTaskMasterInstalled && (
                   <div className="mt-4 px-4 sm:px-0">
                     <NextTaskBanner
-                      onStartTask={() => setInput('Start the next task')}
+                      onStartTask={() => setInput('Start')}
                       onShowAllTasks={onShowAllTasks}
                     />
                   </div>
@@ -5206,8 +4917,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
                   showRawParameters={showRawParameters}
                   showThinking={showThinking}
                   selectedProject={selectedProject}
-                  provider={provider}
-                />
+                  />
               );
             })}
           </>
@@ -5218,15 +4928,9 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
             <div className="w-full">
               <div className="flex items-center space-x-3 mb-2">
                 <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm flex-shrink-0 p-1 bg-transparent">
-                  {(localStorage.getItem('selected-provider') || 'claude') === 'cursor' ? (
-                    <CursorLogo className="w-full h-full" />
-                  ) : (localStorage.getItem('selected-provider') || 'claude') === 'codex' ? (
-                    <CodexLogo className="w-full h-full" />
-                  ) : (
-                    <ClaudeLogo className="w-full h-full" />
-                  )}
+                  <ClaudeLogo className="w-full h-full" />
                 </div>
-                <div className="text-sm font-medium text-gray-900 dark:text-white">{(localStorage.getItem('selected-provider') || 'claude') === 'cursor' ? 'Cursor' : (localStorage.getItem('selected-provider') || 'claude') === 'codex' ? 'Codex' : 'Claude'}</div>
+                <div className="text-sm font-medium text-gray-900 dark:text-white">Claude</div>
                 {/* Abort button removed - functionality not yet implemented at backend */}
               </div>
               <div className="w-full text-sm text-gray-500 dark:text-gray-400 pl-3 sm:pl-0">
@@ -5255,7 +4959,6 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
                 status={claudeStatus}
                 isLoading={isLoading}
                 onAbort={handleAbortSession}
-                provider={provider}
                 showThinking={showThinking}
               />
               </div>
@@ -5389,17 +5092,13 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
                 </span>
               </div>
             </button>
-            
-              {/* Thinking Mode Selector */}
-              {
-                provider === 'claude' && (
 
-                  <ThinkingModeSelector
-                    selectedMode={thinkingMode}
-                    onModeChange={setThinkingMode}
-                    className=""
-                  />
-                )}
+              {/* Thinking Mode Selector */}
+              <ThinkingModeSelector
+                selectedMode={thinkingMode}
+                onModeChange={setThinkingMode}
+                className=""
+              />
             {/* Token usage pie chart - positioned next to mode indicator */}
             <TokenUsagePie
               used={tokenBudget?.used || 0}
@@ -5622,7 +5321,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
                 const isExpanded = e.target.scrollHeight > lineHeight * 2;
                 setIsTextareaExpanded(isExpanded);
               }}
-              placeholder={t('input.placeholder', { provider: provider === 'cursor' ? t('messageTypes.cursor') : provider === 'codex' ? t('messageTypes.codex') : t('messageTypes.claude') })}
+              placeholder={t('input.placeholder', { provider: t('messageTypes.claude') })}
               disabled={isLoading}
               className="chat-input-placeholder block w-full pl-12 pr-20 sm:pr-40 py-1.5 sm:py-4 bg-transparent rounded-2xl focus:outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 disabled:opacity-50 resize-none min-h-[50px] sm:min-h-[80px] max-h-[40vh] sm:max-h-[300px] overflow-y-auto text-base leading-6 transition-all duration-200"
               style={{ height: '50px' }}

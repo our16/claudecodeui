@@ -64,7 +64,7 @@ export default function NovelSidebar({ novels, currentNovel, onNovelChange }) {
 
                   <div className="flex-1 min-w-0 text-left">
                     <div className="font-medium text-gray-800 dark:text-gray-100 truncate">
-                      {novel.display_name || novel.name}
+                      {novel.displayName || novel.name}
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                       {novel.genre && <span className="mr-2">{novel.genre}</span>}

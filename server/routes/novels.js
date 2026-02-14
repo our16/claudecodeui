@@ -41,12 +41,25 @@ router.get('/', async (req, res) => {
 
     // 为每个小说项目添加路径信息，与普通项目保持一致
     const novelsWithPath = novels.map(novel => {
-      const path = novel.projectPath || `novel:${novel.id}`;
+      const projectPath = novel.projectPath || `novel:${novel.id}`;
+      // Encode the project path for use with sessions API (replace : / and \ with -)
+      // Matches the .claude directory structure: F:/workspace-test → F--workspace-test
+      const encodedName = projectPath.replace(/[\/\\:]/g, '-');
       return {
-        ...novel,
-        path: path,                      // 项目标识路径
-        fullPath: novel.projectPath,        // 实际文件系统路径
-        name: novel.name,
+        id: novel.id,
+        name: encodedName,                // 用于sessions API的编码路径 (must be first to override spread)
+        displayName: novel.displayName || novel.name,  // 显示名称
+        description: novel.description,
+        genre: novel.genre,
+        projectPath: novel.projectPath,
+        path: projectPath,                // 项目标识路径
+        fullPath: novel.projectPath,      // 实际文件系统路径
+        createdAt: novel.createdAt,
+        updatedAt: novel.updatedAt,
+        settings: novel.settings,
+        totalChapters: novel.totalChapters,
+        completedChapters: novel.completedChapters,
+        totalWordCount: novel.totalWordCount,
         type: 'novel'                     // 标识为小说项目类型
       };
     });
@@ -137,7 +150,26 @@ router.post('/', async (req, res) => {
       SELECT * FROM novels WHERE id = ?
     `).get(novelId);
 
-    res.status(201).json({ novel });
+    // Encode the project path for use with sessions API
+    const projectPath = novel.project_path || `novel:${novel.id}`;
+    const encodedName = projectPath.replace(/[\/\\:]/g, '-');
+
+    res.status(201).json({
+      novel: {
+        id: novel.id,
+        name: encodedName,                // 用于sessions API的编码路径
+        displayName: novel.display_name || novel.name,
+        description: novel.description,
+        genre: novel.genre,
+        projectPath: novel.project_path,
+        path: projectPath,
+        fullPath: novel.project_path,
+        createdAt: novel.created_at,
+        updatedAt: novel.updated_at,
+        settings: novel.settings,
+        type: 'novel'
+      }
+    });
   } catch (error) {
     console.error('Error creating novel:', error);
     res.status(500).json({ error: error.message });
@@ -178,11 +210,26 @@ router.get('/:id', async (req, res) => {
       ORDER BY type, name
     `).all(novelId);
 
+    // Encode the project path for use with sessions API
+    const projectPath = novel.project_path || `novel:${novel.id}`;
+    const encodedName = projectPath.replace(/[\/\\:]/g, '-');
+
     res.json({
       novel: {
-        ...novel,
+        id: novel.id,
+        name: encodedName,                // 用于sessions API的编码路径
+        displayName: novel.display_name || novel.name,
+        description: novel.description,
+        genre: novel.genre,
+        projectPath: novel.project_path,
+        path: projectPath,
+        fullPath: novel.project_path,
+        createdAt: novel.created_at,
+        updatedAt: novel.updated_at,
+        settings: novel.settings,
         stats: stats || { totalChapters: 0, completedChapters: 0, totalWordCount: 0 },
-        stateFiles
+        stateFiles,
+        type: 'novel'
       }
     });
   } catch (error) {

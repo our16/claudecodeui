@@ -73,8 +73,8 @@ export default function NovelHome() {
 
   // 搜索过滤
   const searchedNovels = filteredNovels.filter(novel =>
-    novel.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (novel.display_name || '').toLowerCase().includes(searchQuery.toLowerCase())
+    novel.displayName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (novel.name || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // 统计数据
