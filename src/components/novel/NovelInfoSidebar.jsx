@@ -121,15 +121,21 @@ export default function NovelInfoSidebar({ currentNovel, onStateFileSelect }) {
         }
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setChapterContentModal(prev => ({ ...prev, content: data.content, loading: false }));
-      } else {
-        setChapterContentModal(prev => ({ ...prev, content: '无法加载章节内容', loading: false }));
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType?.includes('text/html')) {
+          setChapterContentModal(prev => ({ ...prev, content: '服务器返回了意外的响应。请确保后端服务器正在运行并已重启以加载新的API端点。', loading: false }));
+          return;
+        }
+        setChapterContentModal(prev => ({ ...prev, content: `加载失败: ${response.status}`, loading: false }));
+        return;
       }
+
+      const data = await response.json();
+      setChapterContentModal(prev => ({ ...prev, content: data.content, loading: false }));
     } catch (error) {
       console.error('Failed to fetch chapter content:', error);
-      setChapterContentModal(prev => ({ ...prev, content: '加载失败', loading: false }));
+      setChapterContentModal(prev => ({ ...prev, content: '加载失败，请检查网络连接', loading: false }));
     }
   };
 
@@ -440,6 +446,58 @@ export default function NovelInfoSidebar({ currentNovel, onStateFileSelect }) {
           )}
         </div>
       </div>
+
+      {/* 章节正文弹窗 */}
+      {chapterContentModal.show && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setChapterContentModal({ show: false, chapter: null, content: '', loading: false })}>
+          <div
+            className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-3xl w-full max-h-[80vh] flex flex-col mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 弹窗标题 */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+                {chapterContentModal.chapter && `第 ${chapterContentModal.chapter.number} 章`}
+              </h2>
+              <button
+                onClick={() => setChapterContentModal({ show: false, chapter: null, content: '', loading: false })}
+                className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              </button>
+            </div>
+
+            {/* 弹窗内容 */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {chapterContentModal.loading ? (
+                <div className="flex items-center justify-center h-32">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                </div>
+              ) : (
+                <div className="prose prose-sm dark:prose-invert max-w-none">
+                  {chapterContentModal.content.split('\n').map((paragraph, idx) => (
+                    paragraph.trim() ? (
+                      <p key={idx} className="text-gray-700 dark:text-gray-300 leading-relaxed mb-4 indent-8">
+                        {paragraph}
+                      </p>
+                    ) : null
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 弹窗底部 */}
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+              <button
+                onClick={() => setChapterContentModal({ show: false, chapter: null, content: '', loading: false })}
+                className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm"
+              >
+                关闭
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
