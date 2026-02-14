@@ -18,7 +18,7 @@ export default function NovelSidebar({ novels, currentNovel, onNovelChange }) {
   };
 
   return (
-    <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
+    <div className="w-64 bg-white border-r border-gray-200 flex flex-col h-full overflow-hidden">
       {/* 头部 */}
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between mb-3">

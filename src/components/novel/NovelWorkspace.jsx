@@ -123,7 +123,7 @@ export default function NovelWorkspace() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
       {/* 左侧：小说列表 */}
       <NovelSidebar
         novels={novels}
@@ -132,30 +132,25 @@ export default function NovelWorkspace() {
       />
 
       {/* 中间：工作空间 */}
-      <div className="flex-1 flex min-h-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-h-0">
         {currentNovel ? (
-          <>
-            {/* 聊天界面 */}
-            <div className="flex-1 flex flex-col min-h-0 overflow-hidden h-full">
-              <ChatInterface
-                selectedProject={currentNovel}
-                selectedSession={selectedSession}
-                ws={isConnected}
-                sendMessage={sendMessage}
-                latestMessage={latestMessage}
-                onFileOpen={handleFileOpen}
-                onInputFocusChange={handleInputFocusChange}
-                onSessionActive={handleSessionActive}
-                onSessionInactive={handleSessionInactive}
-                onSessionProcessing={handleSessionProcessing}
-                onSessionNotProcessing={handleSessionNotProcessing}
-                processingSessions={processingSessions}
-                onReplaceTemporarySession={handleReplaceTemporarySession}
-                onNavigateToSession={handleNavigateToSession}
-                onShowSettings={handleShowSettings}
-              />
-            </div>
-          </>
+          <ChatInterface
+              selectedProject={currentNovel}
+              selectedSession={selectedSession}
+              ws={isConnected}
+              sendMessage={sendMessage}
+              latestMessage={latestMessage}
+              onFileOpen={handleFileOpen}
+              onInputFocusChange={handleInputFocusChange}
+              onSessionActive={handleSessionActive}
+              onSessionInactive={handleSessionInactive}
+              onSessionProcessing={handleSessionProcessing}
+              onSessionNotProcessing={handleSessionNotProcessing}
+              processingSessions={processingSessions}
+              onReplaceTemporarySession={handleReplaceTemporarySession}
+              onNavigateToSession={handleNavigateToSession}
+              onShowSettings={handleShowSettings}
+            />
         ) : (
           <div className="flex items-center justify-center h-full w-full">
             <div className="text-center">
