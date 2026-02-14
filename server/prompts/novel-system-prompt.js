@@ -271,11 +271,14 @@ export async function buildPromptForSDK(options) {
   const stateFilesSummary = await buildStateFilesSummary(projectPath);
 
   // 组合系统提示词
-  const systemPrompt = getSystemPrompt() + '\n\n' + runtimeContext + stateFilesSummary;
+  let systemPrompt = getSystemPrompt() + '\n\n' + runtimeContext + stateFilesSummary;
+
+  // 清理多余换行符：连续超过2个换行符合并为2个
+  systemPrompt = systemPrompt.replace(/\n{3,}/g, '\n\n').trim();
 
   // 如果有章节信息，添加章节上下文
   let chapterContext = '';
-  if (chapterInfo.title) {
+  if (chapterInfo && chapterInfo.title) {
     chapterContext = `
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
 【当前章节信息】

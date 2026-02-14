@@ -914,14 +914,9 @@ function handleChatConnection(ws) {
                 console.log('🔄 Session:', data.options?.sessionId ? 'Resume' : 'New');
 
                 // Check if this is a Novel Platform request
-                if (isNovelRequest(data.options)) {
-                    console.log('[Novel Platform] Using novel-specific prompt service');
+                console.log('[Novel Platform] Using novel-specific prompt service');
                     // Use Novel Platform prompt service
-                    await queryNovelClaudeSDK(data.command, data.options, writer, queryClaudeSDK);
-                } else {
-                    // Use standard Claude Agents SDK
-                    await queryClaudeSDK(data.command, data.options, writer);
-                }
+                await queryNovelClaudeSDK(data.command, data.options, writer, queryClaudeSDK);
             } else if (data.type === 'cursor-command') {
                 console.log('[DEBUG] Cursor message:', data.command || '[Continue/Resume]');
                 console.log('📁 Project:', data.options?.cwd || 'Unknown');

@@ -61,10 +61,6 @@ export async function getNovelProjectPath(novelId) {
  */
 export async function queryNovelClaudeSDK(command, options = {}, ws, originalQueryClaudeSDK) {
   const { novelId, chapterId, ...restOptions } = options;
-
-  // 如果是小说相关的请求，使用小说专用提示词
-  if (novelId) {
-    try {
       // 确保有工作目录
       let workingDir = restOptions.cwd;
 
@@ -97,21 +93,9 @@ export async function queryNovelClaudeSDK(command, options = {}, ws, originalQue
         images: restOptions.images,
         model: restOptions.model
       };
-
       console.log('[Novel Platform] Using custom system prompt for novel:', novelId);
-
       // 调用原始的 queryClaudeSDK，使用增强的选项
       return originalQueryClaudeSDK(command, enhancedOptions, ws);
-
-    } catch (error) {
-      console.error('[Novel Platform] Error building prompt:', error);
-      // 降级到原始方法
-      return originalQueryClaudeSDK(command, options, ws);
-    }
-  }
-
-  // 非小说请求，使用原始流程
-  return originalQueryClaudeSDK(command, options, ws);
 }
 
 /**
