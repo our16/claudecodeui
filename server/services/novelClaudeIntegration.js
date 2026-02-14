@@ -5,6 +5,50 @@
  */
 
 import { getPromptService } from './promptService.js';
+import path from 'path';
+import { promises as fs } from 'fs';
+import { db } from '../database/db.js';
+
+/**
+ * 验证小说的工作目录是否存在
+ * 注意：只验证用户指定的路径，不自动创建默认目录
+ *
+ * @param {string} novelId - 小说 ID
+ * @param {string} projectPath - 数据库中存储的项目路径
+ * @returns {Promise<string>} 工作目录的绝对路径
+ * @throws {Error} 如果路径不存在
+ */
+export async function ensureNovelWorkingDir(novelId, projectPath = null) {
+  // 必须有项目路径
+  if (!projectPath) {
+    throw new Error(`Novel ${novelId} has no working directory configured. Please specify a projectPath.`);
+  }
+
+  // 验证路径存在性
+  try {
+    await fs.access(projectPath);
+    return path.resolve(projectPath);
+  } catch (error) {
+    throw new Error(`Working directory does not exist for novel ${novelId}: ${projectPath}`);
+  }
+}
+
+/**
+ * 从数据库获取小说的项目路径
+ * @param {string} novelId - 小说 ID
+ * @returns {Promise<string|null>} 项目路径
+ */
+export async function getNovelProjectPath(novelId) {
+  try {
+    const novel = db.prepare(`
+      SELECT project_path FROM novels WHERE id = ?
+    `).get(novelId);
+    return novel?.project_path || null;
+  } catch (error) {
+    console.error('[Novel Platform] Failed to get novel project path:', error);
+    return null;
+  }
+}
 
 /**
  * 为小说创作调用 Claude SDK
@@ -21,18 +65,30 @@ export async function queryNovelClaudeSDK(command, options = {}, ws, originalQue
   // 如果是小说相关的请求，使用小说专用提示词
   if (novelId) {
     try {
+      // 确保有工作目录
+      let workingDir = restOptions.cwd;
+
+      // 如果前端没有传递 cwd，从数据库获取并确保工作目录存在
+      if (!workingDir) {
+        const projectPath = await getNovelProjectPath(novelId);
+        workingDir = await ensureNovelWorkingDir(novelId, projectPath);
+      }
+
+      console.log(`[Novel Platform] Using working directory: ${workingDir}`);
+
       const promptService = getPromptService();
 
       // 使用提示词服务构建配置
       const promptConfig = await promptService.buildPromptForClaudeSDK(command, {
         novelId,
         chapterId,
-        cwd: restOptions.cwd
+        cwd: workingDir
       });
 
       // 合并提示词配置到原始选项中
       const enhancedOptions = {
         ...restOptions,
+        cwd: workingDir,  // 使用确保过的工作目录
         // 使用构建好的系统提示词（替换默认的 preset）
         systemPrompt: promptConfig.systemPrompt,
         // 其他配置保持不变

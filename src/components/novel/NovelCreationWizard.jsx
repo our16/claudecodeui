@@ -14,6 +14,13 @@ const STEPS = [
   { id: 'settings', title: '创作偏好', description: '配置 AI 创作偏好' }
 ];
 
+// 工作目录验证
+const isValidPath = (path) => {
+  if (!path || !path.trim()) return false;
+  // 基本路径格式验证
+  return /^[a-zA-Z]:\\|^[\/\~]/.test(path.trim());
+};
+
 export default function NovelCreationWizard() {
   const navigate = useNavigate();
 
@@ -25,6 +32,7 @@ export default function NovelCreationWizard() {
     displayName: '',
     genre: '仙侠',
     description: '',
+    projectPath: '',  // 工作目录（必填）
     // 结构规划
     volumeCount: 10,
     chaptersPerVolume: 100,
@@ -38,7 +46,9 @@ export default function NovelCreationWizard() {
   const isStepValid = () => {
     switch (currentStep) {
       case 0:
-        return formData.name.trim().length > 0 && formData.displayName.trim().length > 0;
+        return formData.name.trim().length > 0 &&
+               formData.displayName.trim().length > 0 &&
+               isValidPath(formData.projectPath);
       case 1:
         return formData.totalChapters > 0;
       case 2:
@@ -75,7 +85,8 @@ export default function NovelCreationWizard() {
           name: formData.name,
           displayName: formData.displayName,
           genre: formData.genre,
-          description: formData.description
+          description: formData.description,
+          projectPath: formData.projectPath  // 工作目录（必填）
         })
       });
 
@@ -214,9 +225,26 @@ export default function NovelCreationWizard() {
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     placeholder="简单描述你的小说..."
-                    rows={4}
+                    rows={3}
                     className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 resize-none"
                   />
+                </div>
+
+                {/* 工作目录 */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-800 mb-2">
+                    工作目录 <span className="text-red-600">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.projectPath}
+                    onChange={(e) => setFormData({ ...formData, projectPath: e.target.value })}
+                    placeholder="例如：C:\Users\YourName\Novels\MyNovel 或 ~/novels/my-novel"
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-blue-600 font-mono text-sm"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    AI 将在此目录中工作，目录必须已存在
+                  </p>
                 </div>
               </div>
             </>

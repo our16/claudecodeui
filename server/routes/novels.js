@@ -39,7 +39,19 @@ router.get('/', async (req, res) => {
       ORDER BY n.updated_at DESC
     `).all(userId);
 
-    res.json({ novels });
+    // 为每个小说项目添加路径信息，与普通项目保持一致
+    const novelsWithPath = novels.map(novel => {
+      const path = novel.projectPath || `novel:${novel.id}`;
+      return {
+        ...novel,
+        path: path,                      // 项目标识路径
+        fullPath: novel.projectPath,        // 实际文件系统路径
+        name: novel.name,
+        type: 'novel'                     // 标识为小说项目类型
+      };
+    });
+
+    res.json({ novels: novelsWithPath });
   } catch (error) {
     console.error('Error fetching novels:', error);
     res.status(500).json({ error: error.message });
@@ -50,7 +62,9 @@ router.get('/', async (req, res) => {
  * 创建新小说项目
  * POST /api/novels
  *
- * Body: { name, displayName?, genre?, description?, projectPath? }
+ * Body: { name, displayName?, genre?, description?, projectPath }
+ *
+ * 注意：projectPath 为必填项，不自动创建默认目录
  */
 router.post('/', async (req, res) => {
   try {
@@ -61,11 +75,16 @@ router.post('/', async (req, res) => {
       displayName = name,
       genre = '',
       description = '',
-      projectPath = null
+      projectPath
     } = req.body;
 
     if (!name || !name.trim()) {
       return res.status(400).json({ error: 'Novel name is required' });
+    }
+
+    // 工作目录为必填项
+    if (!projectPath || !projectPath.trim()) {
+      return res.status(400).json({ error: 'Working directory (projectPath) is required' });
     }
 
     // 检查是否已存在同名小说
@@ -75,6 +94,14 @@ router.post('/', async (req, res) => {
 
     if (existing) {
       return res.status(409).json({ error: 'Novel with this name already exists' });
+    }
+
+    // 验证工作目录存在（不自动创建）
+    const fs = (await import('fs')).promises;
+    try {
+      await fs.access(projectPath);
+    } catch {
+      return res.status(400).json({ error: `Working directory does not exist: ${projectPath}` });
     }
 
     // 创建小说项目
