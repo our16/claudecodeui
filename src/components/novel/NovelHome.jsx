@@ -85,14 +85,14 @@ export default function NovelHome() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* 头部 */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-800">我的小说</h1>
-              <p className="text-gray-500 text-sm mt-1">
+              <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">我的小说</h1>
+              <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
                 共 {stats.total} 部作品 · {stats.totalChapters} 章 · {stats.totalWords.toLocaleString()} 字
               </p>
             </div>
@@ -113,7 +113,7 @@ export default function NovelHome() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="搜索小说..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div className="flex gap-2">
@@ -123,8 +123,8 @@ export default function NovelHome() {
                   onClick={() => setFilter(f)}
                   className={`px-4 py-2 rounded-lg text-sm transition-colors ${
                     filter === f
-                      ? 'bg-gray-800 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ? 'bg-gray-800 dark:bg-gray-600 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
                 >
                   {f === 'all' ? '全部' : f === 'writing' ? '写作中' : '已完成'}
@@ -140,15 +140,15 @@ export default function NovelHome() {
         {loading ? (
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-            <p className="text-gray-500 mt-4">加载中...</p>
+            <p className="text-gray-500 dark:text-gray-400 mt-4">加载中...</p>
           </div>
         ) : searchedNovels.length === 0 ? (
           <div className="text-center py-16">
-            <BookOpen className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-            <h3 className="text-lg font-medium text-gray-700 mt-4">
+            <BookOpen className="w-16 h-16 mx-auto mb-4 text-gray-400 dark:text-gray-500" />
+            <h3 className="text-lg font-medium text-gray-700 dark:text-gray-300 mt-4">
               {searchQuery ? '未找到匹配的小说' : '暂无小说项目'}
             </h3>
-            <p className="text-gray-500 mt-2">
+            <p className="text-gray-500 dark:text-gray-400 mt-2">
               {searchQuery
                 ? '尝试使用其他关键词搜索'
                 : '点击"创建新小说"开始你的创作之旅'}
@@ -165,31 +165,31 @@ export default function NovelHome() {
             {searchedNovels.map((novel) => (
               <div
                 key={novel.id}
-                className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
+                className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-md transition-shadow"
               >
                 {/* 卡片头部 */}
-                <div className="p-6 border-b border-gray-100">
+                <div className="p-6 border-b border-gray-100 dark:border-gray-700">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-gray-800 truncate">
+                      <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 truncate">
                         {novel.display_name || novel.name}
                       </h3>
                       {novel.genre && (
-                        <span className="inline-block ml-2 px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded">
+                        <span className="inline-block ml-2 px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs rounded">
                           {novel.genre}
                         </span>
                       )}
                     </div>
                     <button
                       onClick={() => navigate(`/novel/${novel.id}`)}
-                      className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                      className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                       title="进入工作台"
                     >
-                      <Edit2 className="w-5 h-5 text-gray-600" />
+                      <Edit2 className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                     </button>
                   </div>
                   {novel.description && (
-                    <p className="text-sm text-gray-500 mt-2 line-clamp-2">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 line-clamp-2">
                       {novel.description}
                     </p>
                   )}
@@ -200,23 +200,23 @@ export default function NovelHome() {
                   {/* 进度统计 */}
                   <div className="flex items-center gap-6 mb-4">
                     <div className="flex-1 text-center">
-                      <div className="text-2xl font-bold text-gray-800">
+                      <div className="text-2xl font-bold text-gray-800 dark:text-gray-100">
                         {novel.stats?.completedChapters || 0}
                       </div>
-                      <div className="text-xs text-gray-500">已完成章节</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">已完成章节</div>
                     </div>
-                    <div className="w-px h-12 bg-gray-200"></div>
+                    <div className="w-px h-12 bg-gray-200 dark:bg-gray-700"></div>
                     <div className="flex-1 text-center">
-                      <div className="text-2xl font-bold text-gray-800">
+                      <div className="text-2xl font-bold text-gray-800 dark:text-gray-100">
                         {novel.stats?.totalChapters || 0}
                       </div>
-                      <div className="text-xs text-gray-500">总章节</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">总章节</div>
                     </div>
                     <div className="flex-1 text-center">
-                      <div className="text-2xl font-bold text-gray-800">
+                      <div className="text-2xl font-bold text-gray-800 dark:text-gray-100">
                         {Math.round((novel.stats?.totalWordCount || 0) / 1000)}k
                       </div>
-                      <div className="text-xs text-gray-500">总字数</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">总字数</div>
                     </div>
                   </div>
 
@@ -228,7 +228,7 @@ export default function NovelHome() {
                         <div
                           key={fileName}
                           className={`flex items-center gap-2 text-sm ${
-                            exists ? 'text-green-600' : 'text-gray-400'
+                            exists ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-500'
                           }`}
                         >
                           <span className={exists ? 'font-medium' : ''}>
@@ -243,7 +243,7 @@ export default function NovelHome() {
                   </div>
 
                   {/* 操作按钮 */}
-                  <div className="flex gap-2 mt-4 pt-4 border-t border-gray-100">
+                  <div className="flex gap-2 mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
                     <button
                       onClick={() => navigate(`/novel/${novel.id}`)}
                       className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm font-medium"
@@ -252,7 +252,7 @@ export default function NovelHome() {
                     </button>
                     <button
                       onClick={() => handleDeleteNovel(novel.id, novel.display_name || novel.name)}
-                      className="px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50 transition-colors"
+                      className="px-4 py-2 border border-red-300 dark:border-red-800 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                       title="删除小说"
                     >
                       <Trash2 className="w-4 h-4" />

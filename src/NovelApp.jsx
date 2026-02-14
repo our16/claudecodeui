@@ -52,17 +52,17 @@ function NovelApp() {
   }, [location.pathname]);
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
       {/* Top Navigation Bar */}
-      <header className="h-16 bg-white border-b border-gray-200 px-6 flex items-center justify-between">
+      <header className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 flex items-center justify-between">
         <div className="flex items-center gap-8">
           {/* Logo */}
           <div
             onClick={() => navigate('/novels')}
             className="flex items-center gap-2 cursor-pointer"
           >
-            <PenTool className="w-7 h-7 text-blue-600" />
-            <h1 className="text-xl font-bold text-gray-800">
+            <PenTool className="w-7 h-7 text-blue-600 dark:text-blue-400" />
+            <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">
               Novel Platform
             </h1>
           </div>
@@ -78,7 +78,7 @@ function NovelApp() {
                   className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors ${
                     activeNav === item.id
                       ? 'bg-blue-500 text-white'
-                      : 'text-gray-700 hover:bg-gray-100'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -91,8 +91,11 @@ function NovelApp() {
 
         {/* Right Actions */}
         <div className="flex items-center gap-3">
-          <button className="p-2 hover:bg-gray-100 rounded-lg">
-            <Settings className="w-5 h-5 text-gray-600" />
+          <button
+            onClick={() => navigate('/settings')}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+          >
+            <Settings className="w-5 h-5 text-gray-600 dark:text-gray-400" />
           </button>
         </div>
       </header>

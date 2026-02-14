@@ -138,8 +138,8 @@ export default function ChapterEditor({ novel, chapter, stateFiles }) {
 
   if (!chapter) {
     return (
-      <div className="h-full flex items-center justify-center bg-gray-50">
-        <div className="text-center text-gray-500">
+      <div className="h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="text-center text-gray-500 dark:text-gray-400">
           <FileText className="w-16 h-16 mx-auto mb-4 opacity-50" />
           <p>请选择一个章节开始创作</p>
         </div>
@@ -148,14 +148,14 @@ export default function ChapterEditor({ novel, chapter, stateFiles }) {
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-white">
+    <div className="flex-1 flex flex-col bg-white dark:bg-gray-800">
       {/* 头部 */}
-      <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-gray-800">
+          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">
             第 {chapter.chapter_number} 章 · {chapter.title}
           </h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             {chapter.currentWordCount || 0} / {chapter.targetWordCount || 3000} 字
           </p>
         </div>
@@ -165,7 +165,7 @@ export default function ChapterEditor({ novel, chapter, stateFiles }) {
             className={`px-3 py-2 text-sm rounded-lg transition-colors ${
               showContentPreview
                 ? 'bg-blue-500 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
             }`}
           >
             {showContentPreview ? '显示对话' : '显示内容'}
@@ -190,7 +190,7 @@ export default function ChapterEditor({ novel, chapter, stateFiles }) {
             {/* 消息列表 */}
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
               {messages.length === 0 ? (
-                <div className="text-center text-gray-500 py-8">
+                <div className="text-center text-gray-500 dark:text-gray-400 py-8">
                   <p className="mb-2">开始与 AI 对话创作这一章</p>
                   <p className="text-sm">输入你的创作要求，AI 将根据大纲和设定进行创作</p>
                 </div>
@@ -203,7 +203,7 @@ export default function ChapterEditor({ novel, chapter, stateFiles }) {
                     <div className={`max-w-2xl rounded-2xl px-4 py-3 ${
                       msg.role === 'user'
                         ? 'bg-blue-500 text-white'
-                        : 'bg-gray-100 text-gray-800'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100'
                     }`}>
                       <div className="whitespace-pre-wrap break-words">
                         {msg.content}
@@ -214,9 +214,9 @@ export default function ChapterEditor({ novel, chapter, stateFiles }) {
               )}
               {isWriting && (
                 <div className="flex justify-start">
-                  <div className="bg-gray-100 rounded-2xl px-4 py-3">
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400"></div>
+                  <div className="bg-gray-100 dark:bg-gray-700 rounded-2xl px-4 py-3">
+                    <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400 dark:border-gray-500"></div>
                       <span className="text-sm">AI 正在写作...</span>
                     </div>
                   </div>
@@ -226,7 +226,7 @@ export default function ChapterEditor({ novel, chapter, stateFiles }) {
             </div>
 
             {/* 输入区 */}
-            <div className="px-6 py-4 border-t border-gray-200">
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
               <div className="flex gap-2">
                 <textarea
                   value={input}
@@ -239,7 +239,7 @@ export default function ChapterEditor({ novel, chapter, stateFiles }) {
                   }}
                   placeholder="输入创作要求..."
                   disabled={isWriting}
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
+                  className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 dark:disabled:bg-gray-800"
                   rows={2}
                 />
                 {isWriting ? (
@@ -254,14 +254,14 @@ export default function ChapterEditor({ novel, chapter, stateFiles }) {
                   <button
                     onClick={handleSend}
                     disabled={!input.trim()}
-                    className="px-4 py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2"
+                    className="px-4 py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     <Send className="w-5 h-5" />
                     发送
                   </button>
                 )}
               </div>
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                 按 Enter 发送，Shift + Enter 换行
               </p>
             </div>
@@ -274,13 +274,13 @@ export default function ChapterEditor({ novel, chapter, stateFiles }) {
             {chapterContent ? (
               <div className="prose prose-sm max-w-none">
                 {chapterContent.split('\n').map((para, idx) => (
-                  <p key={idx} className="mb-4 text-gray-800 leading-relaxed">
+                  <p key={idx} className="mb-4 text-gray-800 dark:text-gray-200 leading-relaxed">
                     {para}
                   </p>
                 ))}
               </div>
             ) : (
-              <div className="text-center text-gray-500 py-8">
+              <div className="text-center text-gray-500 dark:text-gray-400 py-8">
                 <p>暂无内容，请先与 AI 对话进行创作</p>
               </div>
             )}
@@ -290,15 +290,15 @@ export default function ChapterEditor({ novel, chapter, stateFiles }) {
 
       {/* 状态文件参考 */}
       {stateFiles.length > 0 && (
-        <div className="w-64 border-l border-gray-200 bg-gray-50 overflow-y-auto">
-          <div className="px-4 py-3 border-b border-gray-200">
-            <h3 className="font-semibold text-gray-800 text-sm">状态文件参考</h3>
+        <div className="w-64 border-l border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 overflow-y-auto">
+          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">状态文件参考</h3>
           </div>
           <div className="px-4 py-2 space-y-2">
             {stateFiles.map((sf) => (
               <div key={sf.name} className="text-sm">
-                <div className="font-medium text-gray-700">{sf.name}</div>
-                <div className="text-xs text-gray-500 mt-0.5">
+                <div className="font-medium text-gray-700 dark:text-gray-300">{sf.name}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                   {new Date(sf.updated_at).toLocaleDateString()}
                 </div>
               </div>

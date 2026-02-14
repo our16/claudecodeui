@@ -44,9 +44,18 @@ export default function NovelWorkspace() {
           setNovels(data.novels);
           // 设置当前小说
           if (novelId) {
-            const novel = data.novels.find(n => n.id === novelId);
+            // 尝试通过 id 或 _id 查找
+            const novel = data.novels.find(n => n.id === novelId || n._id === novelId || String(n.id) === String(novelId) || String(n._id) === String(novelId));
+            console.log('Looking for novel with ID:', novelId, 'Found:', novel, 'Available novels:', data.novels);
             if (novel) {
               setCurrentNovel(novel);
+            } else {
+              console.warn('Novel not found with ID:', novelId);
+              // 如果找不到，使用第一个小说
+              if (data.novels.length > 0) {
+                console.log('Falling back to first novel');
+                setCurrentNovel(data.novels[0]);
+              }
             }
           } else if (data.novels.length > 0) {
             setCurrentNovel(data.novels[0]);
@@ -113,7 +122,7 @@ export default function NovelWorkspace() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center h-full">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
           <p className="text-gray-500">Loading...</p>
@@ -123,7 +132,7 @@ export default function NovelWorkspace() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-full bg-gray-50 dark:bg-gray-900 overflow-hidden">
       {/* 左侧：小说列表 */}
       <NovelSidebar
         novels={novels}
@@ -132,29 +141,31 @@ export default function NovelWorkspace() {
       />
 
       {/* 中间：工作空间 */}
-      <div className="flex-1 flex flex-col min-h-0">
+      <div className="flex-1 flex flex-col overflow-hidden">
         {currentNovel ? (
-          <ChatInterface
-              selectedProject={currentNovel}
-              selectedSession={selectedSession}
-              ws={isConnected}
-              sendMessage={sendMessage}
-              latestMessage={latestMessage}
-              onFileOpen={handleFileOpen}
-              onInputFocusChange={handleInputFocusChange}
-              onSessionActive={handleSessionActive}
-              onSessionInactive={handleSessionInactive}
-              onSessionProcessing={handleSessionProcessing}
-              onSessionNotProcessing={handleSessionNotProcessing}
-              processingSessions={processingSessions}
-              onReplaceTemporarySession={handleReplaceTemporarySession}
-              onNavigateToSession={handleNavigateToSession}
-              onShowSettings={handleShowSettings}
-            />
+          <div className="flex-1 min-h-0 h-full">
+            <ChatInterface
+                selectedProject={currentNovel}
+                selectedSession={selectedSession}
+                ws={isConnected}
+                sendMessage={sendMessage}
+                latestMessage={latestMessage}
+                onFileOpen={handleFileOpen}
+                onInputFocusChange={handleInputFocusChange}
+                onSessionActive={handleSessionActive}
+                onSessionInactive={handleSessionInactive}
+                onSessionProcessing={handleSessionProcessing}
+                onSessionNotProcessing={handleSessionNotProcessing}
+                processingSessions={processingSessions}
+                onReplaceTemporarySession={handleReplaceTemporarySession}
+                onNavigateToSession={handleNavigateToSession}
+                onShowSettings={handleShowSettings}
+              />
+          </div>
         ) : (
           <div className="flex items-center justify-center h-full w-full">
             <div className="text-center">
-              <p className="text-gray-500 mb-4">Please create a novel project first</p>
+              <p className="text-gray-500 dark:text-gray-400 mb-4">Please create a novel project first</p>
               <button
                 onClick={() => navigate('/novels/new')}
                 className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
@@ -168,26 +179,26 @@ export default function NovelWorkspace() {
 
       {/* 右侧：章节信息（只在有章节时显示） */}
       {currentChapter && (
-        <div className="w-80 border-l border-gray-200 bg-white overflow-y-auto">
-          <div className="px-4 py-3 border-b border-gray-200">
-            <h3 className="font-semibold text-gray-800 text-sm">章节信息</h3>
+        <div className="w-80 border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-y-auto">
+          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="font-semibold text-gray-800 dark:text-gray-100 text-sm">章节信息</h3>
           </div>
           <div className="px-4 py-2 space-y-3">
             <div>
-              <label className="text-xs text-gray-500">章节号</label>
-              <p className="text-sm font-medium text-gray-800">
+              <label className="text-xs text-gray-500 dark:text-gray-400">章节号</label>
+              <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
                 第 {currentChapter.chapter_number} 章
               </p>
             </div>
             <div>
-              <label className="text-xs text-gray-500">标题</label>
-              <p className="text-sm font-medium text-gray-800">
+              <label className="text-xs text-gray-500 dark:text-gray-400">标题</label>
+              <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
                 {currentChapter.title}
               </p>
             </div>
             <div>
-              <label className="text-xs text-gray-500">字数</label>
-              <p className="text-sm text-gray-600">
+              <label className="text-xs text-gray-500 dark:text-gray-400">字数</label>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 {currentChapter.currentWordCount || 0} / {currentChapter.targetWordCount || 3000} 字
               </p>
             </div>
