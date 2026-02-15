@@ -1,7 +1,7 @@
 {
-  "name": "Claude Code UI",
-  "short_name": "Claude UI",
-  "description": "Claude Code UI web application",
+  "name": "墨灵",
+  "short_name": "墨灵",
+  "description": "墨灵 - AI 写作助手",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

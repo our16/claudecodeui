@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { BookOpen, Home, PenTool, Sun, Moon } from 'lucide-react';
+import { BookOpen, Home, Sun, Moon } from 'lucide-react';
 
 // Import Novel Platform Components
 import NovelHome from './components/novel/NovelHome';
@@ -57,7 +57,7 @@ function NovelApp() {
             onClick={() => navigate('/novels')}
             className="flex items-center gap-2 cursor-pointer"
           >
-            <PenTool className="w-7 h-7 text-blue-600 dark:text-blue-400" />
+            <img src="/icons/writer-icon.svg" alt="墨灵" className="w-7 h-7" />
             <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">
               墨灵
             </h1>
