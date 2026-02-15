@@ -1892,7 +1892,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
   const [messagesOffset, setMessagesOffset] = useState(0);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [totalMessages, setTotalMessages] = useState(0);
-  const MESSAGES_PER_PAGE = 200; // Increased from 20 to load more history at once
+  const MESSAGES_PER_PAGE = 50; // Reduced for faster initial load, can load more on scroll
   const [isSystemSessionChange, setIsSystemSessionChange] = useState(false);
   const [permissionMode, setPermissionMode] = useState('default');
   // In-memory queue of tool permission prompts for the current UI view.
@@ -1945,7 +1945,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
   const [tokenBudget, setTokenBudget] = useState(null);
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(-1);
   const [slashPosition, setSlashPosition] = useState(-1);
-  const [visibleMessageCount, setVisibleMessageCount] = useState(1000); // Increased from 100 to show more history
+  const [visibleMessageCount, setVisibleMessageCount] = useState(200); // Reduced for faster initial render
   const [claudeStatus, setClaudeStatus] = useState(null);
   const [thinkingMode, setThinkingMode] = useState('none');
   const [claudeModel, setClaudeModel] = useState(() => {
@@ -3080,7 +3080,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
       // Use setTimeout to ensure state updates and DOM rendering are complete
       setTimeout(() => {
         isLoadingSessionRef.current = false;
-      }, 250);
+      }, 50);
     };
 
     loadMessages();
@@ -5277,51 +5277,6 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-            </button>
-
-            {/* Slash commands button */}
-            <button
-              type="button"
-              onClick={() => {
-                const isOpening = !showCommandMenu;
-                setShowCommandMenu(isOpening);
-                setCommandQuery('');
-                setSelectedCommandIndex(-1);
-
-                // When opening, ensure all commands are shown
-                if (isOpening) {
-                  setFilteredCommands(slashCommands);
-                }
-
-                if (textareaRef.current) {
-                  textareaRef.current.focus();
-                }
-              }}
-              className="relative w-8 h-8 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-full flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:ring-offset-gray-800"
-              title={t('input.showAllCommands')}
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"
-                />
-              </svg>
-              {/* Command count badge */}
-              {slashCommands.length > 0 && (
-                <span
-                  className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center"
-                  style={{ fontSize: '10px' }}
-                >
-                  {slashCommands.length}
-                </span>
-              )}
             </button>
 
             {/* Clear input button - positioned to the right of token pie, only shows when there's input */}

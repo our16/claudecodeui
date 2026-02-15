@@ -78,43 +78,25 @@ export default function NovelWorkspace() {
     const loadSessions = async () => {
       try {
         setSessionsLoading(true);
-        // The novel's name is already encoded for API use
         const encodedProjectName = currentNovel.name;
 
-        // Debug: log currentNovel structure
-        console.log('Current novel data:', {
-          id: currentNovel.id,
-          name: currentNovel.name,
-          displayName: currentNovel.displayName,
-          projectPath: currentNovel.projectPath,
-          path: currentNovel.path,
-          fullPath: currentNovel.fullPath,
-          encodedProjectName: encodedProjectName
-        });
-
-        console.log('Loading sessions for novel project:', encodedProjectName);
-
-        const response = await fetch(`/api/projects/${encodedProjectName}/sessions?limit=10&offset=0`, {
+        // Only load the most recent session (limit=1) for faster initial load
+        const response = await fetch(`/api/projects/${encodedProjectName}/sessions?limit=1&offset=0`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
           }
         });
 
         const data = await response.json();
-        console.log('Sessions response:', data);
 
         if (data.sessions && data.sessions.length > 0) {
-          // Auto-select the most recent session (first in the list)
-          const mostRecentSession = data.sessions[0];
-          console.log('Auto-selecting most recent session:', mostRecentSession.id);
-          setSelectedSession(mostRecentSession);
+          // Auto-select the most recent session
+          setSelectedSession(data.sessions[0]);
         } else {
-          // No sessions found, clear the selected session
           setSelectedSession(null);
         }
       } catch (error) {
         console.error('Failed to load sessions:', error);
-        // On error, don't clear existing session - might be a network issue
       } finally {
         setSessionsLoading(false);
       }
