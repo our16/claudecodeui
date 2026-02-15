@@ -891,4 +891,413 @@ router.get('/:id/chapters/:volumeName/:chapterNumber/content', async (req, res) 
   }
 });
 
+// ============================================================================
+// 上下文管理端点
+// ============================================================================
+
+/**
+ * 获取上下文配置
+ * GET /api/novels/:id/context/config
+ */
+router.get('/:id/context/config', async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const novelId = req.params.id;
+
+    // 检查权限
+    const novel = db.prepare(`
+      SELECT id FROM novels WHERE id = ? AND user_id = ?
+    `).get(novelId, userId);
+
+    if (!novel) {
+      return res.status(404).json({ error: 'Novel not found' });
+    }
+
+    const { getContextService } = await import('../services/contextService.js');
+    const contextService = getContextService();
+    const config = await contextService.getContextConfig(novelId);
+
+    res.json({ config });
+  } catch (error) {
+    console.error('Error getting context config:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * 更新上下文配置
+ * PUT /api/novels/:id/context/config
+ *
+ * Body: { recentChaptersCount?, includePlotThreads?, includeMilestones?, ... }
+ */
+router.put('/:id/context/config', async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const novelId = req.params.id;
+
+    // 检查权限
+    const novel = db.prepare(`
+      SELECT id FROM novels WHERE id = ? AND user_id = ?
+    `).get(novelId, userId);
+
+    if (!novel) {
+      return res.status(404).json({ error: 'Novel not found' });
+    }
+
+    const { getContextService } = await import('../services/contextService.js');
+    const contextService = getContextService();
+    await contextService.updateContextConfig(novelId, req.body);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating context config:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * 构建章节上下文（用于预览或调试）
+ * GET /api/novels/:id/chapters/:chapterId/context
+ */
+router.get('/:id/chapters/:chapterId/context', async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const novelId = req.params.id;
+    const chapterId = req.params.chapterId;
+
+    // 检查权限
+    const chapter = db.prepare(`
+      SELECT c.id FROM chapters c
+      JOIN novels n ON n.id = c.novel_id
+      WHERE c.id = ? AND c.novel_id = ? AND n.user_id = ?
+    `).get(chapterId, novelId, userId);
+
+    if (!chapter) {
+      return res.status(404).json({ error: 'Chapter not found' });
+    }
+
+    const { getContextService } = await import('../services/contextService.js');
+    const contextService = getContextService();
+    const context = await contextService.buildChapterContext(novelId, chapterId);
+    const formattedContext = contextService.formatContextForPrompt(context);
+
+    res.json({
+      context,
+      formattedContext,
+      meta: {
+        builtAt: context.builtAt,
+        recentChaptersCount: context.recentChapters?.length || 0,
+        hasFacts: !!(context.facts?.characters || context.facts?.worldRules),
+        hasWorldline: !!(context.worldline?.timeline || context.worldline?.plotThreads?.length),
+        hasHistory: !!(context.history?.milestones?.length)
+      }
+    });
+  } catch (error) {
+    console.error('Error building chapter context:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * 创建章节写作会话
+ * POST /api/novels/:id/chapters/:chapterId/sessions
+ *
+ * Body: { sessionType?: 'writing' | 'planning' | 'review' }
+ */
+router.post('/:id/chapters/:chapterId/sessions', async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const novelId = req.params.id;
+    const chapterId = req.params.chapterId;
+    const { sessionType = 'writing' } = req.body;
+
+    // 检查权限
+    const chapter = db.prepare(`
+      SELECT c.*, n.user_id
+      FROM chapters c
+      JOIN novels n ON n.id = c.novel_id
+      WHERE c.id = ? AND c.novel_id = ? AND n.user_id = ?
+    `).get(chapterId, novelId, userId);
+
+    if (!chapter) {
+      return res.status(404).json({ error: 'Chapter not found' });
+    }
+
+    const { getContextService } = await import('../services/contextService.js');
+    const contextService = getContextService();
+    const result = await contextService.createChapterSession(chapterId, sessionType);
+
+    // 更新章节状态为写作中
+    db.prepare(`
+      UPDATE chapters SET status = 'writing', updated_at = datetime('now')
+      WHERE id = ?
+    `).run(chapterId);
+
+    res.status(201).json({
+      sessionId: result.sessionId,
+      context: result.context,
+      chapter: {
+        id: chapter.id,
+        number: chapter.chapter_number,
+        title: chapter.title,
+        status: 'writing'
+      }
+    });
+  } catch (error) {
+    console.error('Error creating chapter session:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * 关闭章节写作会话
+ * POST /api/novels/:id/chapters/:chapterId/sessions/:sessionId/close
+ */
+router.post('/:id/chapters/:chapterId/sessions/:sessionId/close', async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const novelId = req.params.id;
+    const chapterId = req.params.chapterId;
+    const sessionId = req.params.sessionId;
+
+    // 检查权限
+    const chapter = db.prepare(`
+      SELECT c.id FROM chapters c
+      JOIN novels n ON n.id = c.novel_id
+      WHERE c.id = ? AND c.novel_id = ? AND n.user_id = ?
+    `).get(chapterId, novelId, userId);
+
+    if (!chapter) {
+      return res.status(404).json({ error: 'Chapter not found' });
+    }
+
+    const { getContextService } = await import('../services/contextService.js');
+    const contextService = getContextService();
+    await contextService.closeChapterSession(sessionId);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error closing chapter session:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * 更新章节摘要
+ * PUT /api/novels/:id/chapters/:chapterId/summary
+ *
+ * Body: { summaryText, keyEvents?, characterChanges?, plotProgress?, wordCount? }
+ */
+router.put('/:id/chapters/:chapterId/summary', async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const novelId = req.params.id;
+    const chapterId = req.params.chapterId;
+
+    // 检查权限
+    const chapter = db.prepare(`
+      SELECT c.id FROM chapters c
+      JOIN novels n ON n.id = c.novel_id
+      WHERE c.id = ? AND c.novel_id = ? AND n.user_id = ?
+    `).get(chapterId, novelId, userId);
+
+    if (!chapter) {
+      return res.status(404).json({ error: 'Chapter not found' });
+    }
+
+    const { getContextService } = await import('../services/contextService.js');
+    const contextService = getContextService();
+    await contextService.updateChapterSummary(chapterId, req.body);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating chapter summary:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================================================
+// 伏笔追踪端点
+// ============================================================================
+
+/**
+ * 获取伏笔列表
+ * GET /api/novels/:id/plot-threads
+ */
+router.get('/:id/plot-threads', async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const novelId = req.params.id;
+
+    // 检查权限
+    const novel = db.prepare(`
+      SELECT id FROM novels WHERE id = ? AND user_id = ?
+    `).get(novelId, userId);
+
+    if (!novel) {
+      return res.status(404).json({ error: 'Novel not found' });
+    }
+
+    const { getContextService } = await import('../services/contextService.js');
+    const contextService = getContextService();
+    const threads = await contextService.getActivePlotThreads(novelId);
+
+    res.json({ threads });
+  } catch (error) {
+    console.error('Error getting plot threads:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * 添加伏笔
+ * POST /api/novels/:id/plot-threads
+ *
+ * Body: { name, description?, introducedChapter?, importance?, notes? }
+ */
+router.post('/:id/plot-threads', async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const novelId = req.params.id;
+
+    // 检查权限
+    const novel = db.prepare(`
+      SELECT id FROM novels WHERE id = ? AND user_id = ?
+    `).get(novelId, userId);
+
+    if (!novel) {
+      return res.status(404).json({ error: 'Novel not found' });
+    }
+
+    const { name, description, introducedChapter, importance, notes } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Thread name is required' });
+    }
+
+    const { getContextService } = await import('../services/contextService.js');
+    const contextService = getContextService();
+    const result = await contextService.addPlotThread(novelId, {
+      name,
+      description,
+      introducedChapter,
+      importance,
+      notes
+    });
+
+    res.status(201).json({ id: result.lastInsertRowid, success: true });
+  } catch (error) {
+    console.error('Error adding plot thread:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * 更新伏笔状态
+ * PUT /api/novels/:id/plot-threads/:threadId
+ *
+ * Body: { status?, resolvedChapter?, notes? }
+ */
+router.put('/:id/plot-threads/:threadId', async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const novelId = req.params.id;
+    const threadId = req.params.threadId;
+
+    // 检查权限
+    const novel = db.prepare(`
+      SELECT id FROM novels WHERE id = ? AND user_id = ?
+    `).get(novelId, userId);
+
+    if (!novel) {
+      return res.status(404).json({ error: 'Novel not found' });
+    }
+
+    const { getContextService } = await import('../services/contextService.js');
+    const contextService = getContextService();
+    await contextService.updatePlotThread(threadId, req.body);
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating plot thread:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================================================
+// 里程碑端点
+// ============================================================================
+
+/**
+ * 获取里程碑列表
+ * GET /api/novels/:id/milestones
+ */
+router.get('/:id/milestones', async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const novelId = req.params.id;
+
+    // 检查权限
+    const novel = db.prepare(`
+      SELECT id FROM novels WHERE id = ? AND user_id = ?
+    `).get(novelId, userId);
+
+    if (!novel) {
+      return res.status(404).json({ error: 'Novel not found' });
+    }
+
+    const { getContextService } = await import('../services/contextService.js');
+    const contextService = getContextService();
+    const milestones = await contextService.getMilestones(novelId);
+
+    res.json({ milestones });
+  } catch (error) {
+    console.error('Error getting milestones:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * 添加里程碑
+ * POST /api/novels/:id/milestones
+ *
+ * Body: { title, chapterNumber?, description?, milestoneType?, importance? }
+ */
+router.post('/:id/milestones', async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const novelId = req.params.id;
+
+    // 检查权限
+    const novel = db.prepare(`
+      SELECT id FROM novels WHERE id = ? AND user_id = ?
+    `).get(novelId, userId);
+
+    if (!novel) {
+      return res.status(404).json({ error: 'Novel not found' });
+    }
+
+    const { title, chapterNumber, description, milestoneType, importance } = req.body;
+
+    if (!title || !title.trim()) {
+      return res.status(400).json({ error: 'Milestone title is required' });
+    }
+
+    const { getContextService } = await import('../services/contextService.js');
+    const contextService = getContextService();
+    const result = await contextService.addMilestone(novelId, {
+      title,
+      chapterNumber,
+      description,
+      milestoneType,
+      importance
+    });
+
+    res.status(201).json({ id: result.lastInsertRowid, success: true });
+  } catch (error) {
+    console.error('Error adding milestone:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;
