@@ -260,8 +260,36 @@ export class ContextService {
       } catch {}
     }
 
-    // 加载伏笔追踪（如果配置启用）
-    if (config.include_plot_threads) {
+    // 加载伏笔追踪（优先从文件读取，同步到数据库）
+    if (config.include_plot_threads && projectPath) {
+      try {
+        const plotThreadsFile = path.join(projectPath, 'state', 'plot_threads.md');
+        const content = await fs.readFile(plotThreadsFile, 'utf-8');
+
+        // 解析 Markdown 格式的伏笔文件
+        const threads = this.parsePlotThreadsFile(content);
+
+        // 同步到数据库（确保数据一致性）
+        await this.syncPlotThreadsToDb(novelId, threads);
+
+        // 从数据库加载（保持原有接口）
+        worldline.plotThreads = this.db.prepare(`
+          SELECT id, name, description, status, introduced_chapter, resolved_chapter, importance, notes
+          FROM plot_threads
+          WHERE novel_id = ? AND status = 'active'
+          ORDER BY importance DESC, created_at ASC
+        `).all(novelId);
+      } catch (error) {
+        // 文件不存在或其他错误，从数据库加载
+        worldline.plotThreads = this.db.prepare(`
+          SELECT id, name, description, status, introduced_chapter, resolved_chapter, importance, notes
+          FROM plot_threads
+          WHERE novel_id = ? AND status = 'active'
+          ORDER BY importance DESC, created_at ASC
+        `).all(novelId);
+      }
+    } else if (config.include_plot_threads) {
+      // 没有项目路径，仅从数据库加载
       worldline.plotThreads = this.db.prepare(`
         SELECT id, name, description, status, introduced_chapter, resolved_chapter, importance, notes
         FROM plot_threads
@@ -418,6 +446,100 @@ export class ContextService {
   // =========================================================================
   // 伏笔追踪管理
   // =========================================================================
+
+  /**
+   * 解析伏笔文件（Markdown 格式）
+   * @param {string} content - 文件内容
+   * @returns {Array} 解析出的伏笔列表
+   */
+  parsePlotThreadsFile(content) {
+    if (!content) return [];
+
+    const threads = [];
+    const lines = content.split('\n');
+    let currentThread = null;
+
+    for (const line of lines) {
+      // 匹配 ## 标题作为伏笔名称
+      if (line.startsWith('## ')) {
+        if (currentThread) {
+          threads.push(currentThread);
+        }
+        currentThread = {
+          name: line.replace(/^##\s+/, '').trim(),
+          description: '',
+          introduced_chapter: null,
+          status: 'active'
+        };
+      } else if (currentThread) {
+        // 解析属性
+        if (line.includes('引入章节：') || line.includes('引入章节:')) {
+          const match = line.match(/第?(\d+)章?/);
+          if (match) {
+            currentThread.introduced_chapter = parseInt(match[1], 10);
+          }
+        } else if (line.includes('状态：') || line.includes('状态:')) {
+          const statusText = line.split(/[：:]/)[1]?.trim();
+          if (statusText?.includes('收束') || statusText?.includes('完成')) {
+            currentThread.status = 'resolved';
+          }
+        } else if (line.includes('描述：') || line.includes('描述:')) {
+          currentThread.description = line.split(/[：:]/)[1]?.trim() || '';
+        } else if (line.startsWith('-') && !line.includes('：') && !line.includes(':')) {
+          // 普通的列表项作为描述
+          const desc = line.replace(/^-\s*/, '').trim();
+          if (desc && !currentThread.description) {
+            currentThread.description = desc;
+          }
+        }
+      }
+    }
+
+    // 添加最后一个伏笔
+    if (currentThread) {
+      threads.push(currentThread);
+    }
+
+    return threads;
+  }
+
+  /**
+   * 同步伏笔到数据库
+   * @param {string} novelId - 小说 ID
+   * @param {Array} threads - 伏笔列表
+   */
+  async syncPlotThreadsToDb(novelId, threads) {
+    if (!threads || threads.length === 0) return;
+
+    for (const thread of threads) {
+      if (!thread.name) continue;
+
+      try {
+        // 检查是否已存在
+        const existing = this.db.prepare(`
+          SELECT id FROM plot_threads
+          WHERE novel_id = ? AND name = ?
+        `).get(novelId, thread.name);
+
+        if (existing) {
+          // 更新状态
+          this.db.prepare(`
+            UPDATE plot_threads
+            SET status = ?, description = COALESCE(?, description)
+            WHERE id = ?
+          `).run(thread.status, thread.description, existing.id);
+        } else {
+          // 插入新伏笔
+          this.db.prepare(`
+            INSERT INTO plot_threads (novel_id, name, description, introduced_chapter, status)
+            VALUES (?, ?, ?, ?, ?)
+          `).run(novelId, thread.name, thread.description || '', thread.introduced_chapter, thread.status);
+        }
+      } catch (error) {
+        console.error(`[ContextService] Error syncing plot thread "${thread.name}":`, error.message);
+      }
+    }
+  }
 
   /**
    * 添加伏笔/支线

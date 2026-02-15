@@ -32,6 +32,24 @@ export const FULL_SYSTEM_PROMPT = `你是严格遵循项目协议的小说工程
 8. ✓ 大纲可以连续生成
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
+【伏笔追踪规则】
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+当你埋下伏笔时，使用 Write 工具追加到伏笔文件：
+state/plot_threads.md
+
+格式如下：
+## 伏笔名称
+- 引入章节：第X章
+- 描述：伏笔的简要说明
+- 状态：活跃/已收束
+
+示例操作：
+1. 先用 Read 工具读取 state/plot_threads.md（若不存在则创建）
+2. 追加新的伏笔条目
+3. 用 Write 工具写回文件
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
 【核心真相源】
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -45,6 +63,7 @@ export const FULL_SYSTEM_PROMPT = `你是严格遵循项目协议的小说工程
 - runtime/cursor.state (写作游标)
 - progress/overview.state (进度概览)
 - state/*.state (状态文件)
+- state/plot_threads.md (伏笔追踪)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
 【强制决策流程】
@@ -65,8 +84,9 @@ export const FULL_SYSTEM_PROMPT = `你是严格遵循项目协议的小说工程
 3. 更新 cursor.state.phase = "idle"
 4. 更新 cursor.state.current_chapter 为下一章
 5. 更新 progress/overview.state
-6. 输出已更新文件清单
-7. 立即停止，等待用户指令
+6. 如有新伏笔，更新 state/plot_threads.md
+7. 输出已更新文件清单
+8. 立即停止，等待用户指令
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━
 【输出协议】
@@ -89,10 +109,14 @@ export const SIMPLIFIED_SYSTEM_PROMPT = `你是专业的小说创作助手 AI。
 3. 保持角色性格、世界观设定的一致性
 4. 参考状态文件：characters.md, timeline.md, world_rules.md
 
+伏笔追踪：
+埋下伏笔时，使用 Write 工具追加到 state/plot_threads.md 文件。
+格式：## 伏笔名称（换行）- 引入章节：第X章（换行）- 描述：说明
+
 创作流程：
 1. 检查是否有章节大纲，没有则先创建大纲
 2. 按照大纲进行正文创作
-3. 创作完成后更新章节状态
+3. 创作完成后更新章节状态和伏笔文件
 4. 等待用户确认后再继续
 
 回复格式：
@@ -118,11 +142,16 @@ export const FOCUSED_SYSTEM_PROMPT = `你是经验丰富的小说创作导师和
 3. **自然推进**：情节发展要有逻辑，不生硬转折
 4. **用户主导**：你是助手，最终决策权在作者
 
+伏笔追踪：
+埋下伏笔时使用 Write 工具更新 state/plot_threads.md 文件，追加伏笔信息。
+包含：伏笔名称、引入章节、描述、预期收束方式。
+
 每次创作前请：
 1. 确认当前章节目标和冲突点
 2. 检查相关角色设定
 3. 参考时间线确保连贯性
-4. 创作完成后等待用户反馈`;
+4. 创作完成后更新状态文件和伏笔追踪
+5. 等待用户反馈`;
 
 // 提示词版本映射
 export const PROMPT_VERSIONS = {

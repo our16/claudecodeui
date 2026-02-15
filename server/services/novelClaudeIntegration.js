@@ -2,6 +2,10 @@
  * Novel Claude Integration - 小说平台的 Claude SDK 集成
  *
  * 扩展原有的 Claude SDK 功能，支持小说专用的系统提示词
+ *
+ * 伏笔追踪说明：
+ * - AI 通过 Write 工具直接写入 state/plot_threads.md 文件
+ * - contextService 在加载上下文时会解析该文件并同步到数据库
  */
 
 import { getPromptService } from './promptService.js';
@@ -94,7 +98,10 @@ export async function queryNovelClaudeSDK(command, options = {}, ws, originalQue
         model: restOptions.model
       };
       console.log('[Novel Platform] Using custom system prompt for novel:',promptConfig.systemPrompt, novelId);
-      // 调用原始的 queryClaudeSDK，使用增强的选项
+
+      // 直接调用原始的 queryClaudeSDK
+      // 伏笔追踪：AI 通过 Write 工具直接写入 state/plot_threads.md 文件
+      // contextService 在加载上下文时会自动解析并同步到数据库
       return originalQueryClaudeSDK(command, enhancedOptions, ws);
 }
 

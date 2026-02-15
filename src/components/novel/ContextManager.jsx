@@ -7,7 +7,7 @@
  * - 最近章节摘要
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext, useCallback } from 'react';
 import {
   BookOpen,
   Globe,
@@ -21,6 +21,7 @@ import {
   Plus,
   Check
 } from 'lucide-react';
+import WebSocketContext from '../../contexts/WebSocketContext';
 
 export default function ContextPanel({ novelId, chapterId, onContextChange }) {
   const [config, setConfig] = useState(null);
@@ -40,6 +41,34 @@ export default function ContextPanel({ novelId, chapterId, onContextChange }) {
   const [showAddMilestone, setShowAddMilestone] = useState(false);
   const [newThread, setNewThread] = useState({ name: '', description: '' });
   const [newMilestone, setNewMilestone] = useState({ title: '', chapterNumber: '', description: '' });
+
+  const { latestMessage } = useContext(WebSocketContext) || { latestMessage: null };
+
+  // 加载伏笔列表
+  const loadPlotThreads = useCallback(async () => {
+    if (!novelId) return;
+
+    try {
+      const token = localStorage.getItem('auth-token');
+      const res = await fetch(`/api/novels/${novelId}/plot-threads`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPlotThreads(data.threads || []);
+      }
+    } catch (error) {
+      console.error('Failed to load plot threads:', error);
+    }
+  }, [novelId]);
+
+  // 监听 WebSocket 消息，当伏笔更新时刷新列表
+  useEffect(() => {
+    if (latestMessage?.type === 'plot-threads-updated' && latestMessage?.novelId === novelId) {
+      console.log('[ContextPanel] Plot threads updated, refreshing...');
+      loadPlotThreads();
+    }
+  }, [latestMessage, novelId, loadPlotThreads]);
 
   // 加载上下文配置和数据
   useEffect(() => {
