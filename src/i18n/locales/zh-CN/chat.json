@@ -110,39 +110,44 @@
   },
   "thinkingMode": {
     "selector": {
-      "title": "思考模式",
-      "description": "扩展思考给 Claude 更多时间来评估替代方案",
-      "active": "激活",
-      "tip": "更高的思考模式需要更多时间，但提供更彻底的分析"
+      "title": "写作模式",
+      "description": "选择适合当前任务的写作模式",
+      "active": "当前",
+      "tip": "根据写作任务选择合适的模式，获得更好的创作效果"
     },
     "modes": {
       "none": {
-        "name": "标准",
-        "description": "常规 Claude 响应",
+        "name": "日常对话",
+        "description": "普通问答，不涉及创作",
         "prefix": ""
       },
-      "think": {
-        "name": "思考",
-        "description": "基本扩展思考",
-        "prefix": "思考"
+      "creative": {
+        "name": "灵感创作",
+        "description": "自由发挥，创意优先，适合头脑风暴",
+        "prefix": "创意写作"
       },
-      "thinkHard": {
-        "name": "深入思考",
-        "description": "更彻底的评估",
-        "prefix": "深入思考"
+      "chapter": {
+        "name": "章节创作",
+        "description": "正式章节内容，深度思考，注重细节",
+        "prefix": "章节创作"
       },
-      "thinkHarder": {
-        "name": "更深入思考",
-        "description": "考虑替代方案的深度分析",
-        "prefix": "更深入思考"
+      "outline": {
+        "name": "大纲规划",
+        "description": "情节设计、章节安排、故事结构",
+        "prefix": "大纲规划"
       },
-      "ultrathink": {
-        "name": "超级思考",
-        "description": "最大思考预算",
-        "prefix": "超级思考"
+      "character": {
+        "name": "人物刻画",
+        "description": "角色塑造、心理描写、对话设计",
+        "prefix": "人物刻画"
+      },
+      "polish": {
+        "name": "润色优化",
+        "description": "修改润色已有内容，提升文采",
+        "prefix": "润色优化"
       }
     },
-    "buttonTitle": "思考模式：{{mode}}"
+    "buttonTitle": "写作模式：{{mode}}"
   },
   "providerSelection": {
     "title": "选择您的 AI 助手",

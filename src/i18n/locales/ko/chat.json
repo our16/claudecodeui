@@ -110,39 +110,44 @@
   },
   "thinkingMode": {
     "selector": {
-      "title": "Thinking 모드",
-      "description": "확장된 thinking은 Claude에게 대안을 평가할 시간을 더 줍니다",
+      "title": "Writing 모드",
+      "description": "현재 작업에 적합한 Writing 모드를 선택하세요",
       "active": "활성",
-      "tip": "높은 thinking 모드는 시간이 더 걸리지만 더 철저한 분석을 제공합니다"
+      "tip": "작업에 맞는 적절한 모드를 선택하면 더 나은 결과를 얻을 수 있습니다"
     },
     "modes": {
       "none": {
-        "name": "Standard",
-        "description": "일반 Claude 응답",
+        "name": "일상 대화",
+        "description": "일반 대화, Q&A",
         "prefix": ""
       },
-      "think": {
-        "name": "Think",
-        "description": "기본 확장 thinking",
-        "prefix": "think"
+      "creative": {
+        "name": "창작",
+        "description": "자유로운 창작, 영감, 브레인스토밍",
+        "prefix": "창작"
       },
-      "thinkHard": {
-        "name": "Think Hard",
-        "description": "더 철저한 평가",
-        "prefix": "think hard"
+      "chapter": {
+        "name": "챕터 작성",
+        "description": "깊은 생각과 디테일이 필요한 정식 챕터 작성",
+        "prefix": "챕터 작성"
       },
-      "thinkHarder": {
-        "name": "Think Harder",
-        "description": "대안을 포함한 심층 분석",
-        "prefix": "think harder"
+      "outline": {
+        "name": "아웃라인",
+        "description": "플롯 구조, 챕터 계획, 스토리 아키텍처",
+        "prefix": "아웃라인 계획"
       },
-      "ultrathink": {
-        "name": "Ultrathink",
-        "description": "최대 thinking 예산",
-        "prefix": "ultrathink"
+      "character": {
+        "name": "캐릭터",
+        "description": "캐릭터 개발, 심리 묘사, 대화 설계",
+        "prefix": "캐릭터 개발"
+      },
+      "polish": {
+        "name": "다듬기",
+        "description": "기존 콘텐츠 수정 및 개선, 문체 향상",
+        "prefix": "다듬기"
       }
     },
-    "buttonTitle": "Thinking 모드: {{mode}}"
+    "buttonTitle": "Writing 모드: {{mode}}"
   },
   "providerSelection": {
     "title": "AI 어시스턴트 선택",
