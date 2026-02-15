@@ -638,18 +638,20 @@ router.put('/:id/state-files/:name', async (req, res) => {
  * 开始章节创作会话
  * POST /api/novels/:id/chapters/:chapterId/sessions
  *
- * Body: { prompt }
+ * Body: { prompt?, sessionType? }
+ * - prompt: 用户输入的提示（旧模式）
+ * - sessionType: 'writing' | 'planning' | 'review'（新模式，使用隔离上下文）
  */
 router.post('/:id/chapters/:chapterId/sessions', async (req, res) => {
   try {
     const userId = req.user.id;
     const novelId = req.params.id;
     const chapterId = req.params.chapterId;
-    const { prompt } = req.body;
+    const { prompt, sessionType } = req.body;
 
     // 检查权限
     const chapter = db.prepare(`
-      SELECT c.*, n.user_id
+      SELECT c.*, n.user_id, n.project_path
       FROM chapters c
       JOIN novels n ON n.id = c.novel_id
       WHERE c.id = ? AND c.novel_id = ? AND n.user_id = ?
@@ -659,7 +661,31 @@ router.post('/:id/chapters/:chapterId/sessions', async (req, res) => {
       return res.status(404).json({ error: 'Chapter not found' });
     }
 
-    // 使用提示词服务构建系统提示词
+    // 新模式：使用隔离上下文
+    if (sessionType) {
+      const { getContextService } = await import('../services/contextService.js');
+      const contextService = getContextService();
+      const result = await contextService.createChapterSession(chapterId, sessionType);
+
+      // 更新章节状态为写作中
+      db.prepare(`
+        UPDATE chapters SET status = 'writing', updated_at = datetime('now')
+        WHERE id = ?
+      `).run(chapterId);
+
+      return res.status(201).json({
+        sessionId: result.sessionId,
+        context: result.context,
+        chapter: {
+          id: chapter.id,
+          number: chapter.chapter_number,
+          title: chapter.title,
+          status: 'writing'
+        }
+      });
+    }
+
+    // 旧模式：使用提示词服务
     const promptService = getPromptService();
     const promptConfig = await promptService.buildPromptForClaudeSDK(prompt, {
       novelId,
@@ -994,57 +1020,6 @@ router.get('/:id/chapters/:chapterId/context', async (req, res) => {
     });
   } catch (error) {
     console.error('Error building chapter context:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-/**
- * 创建章节写作会话
- * POST /api/novels/:id/chapters/:chapterId/sessions
- *
- * Body: { sessionType?: 'writing' | 'planning' | 'review' }
- */
-router.post('/:id/chapters/:chapterId/sessions', async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const novelId = req.params.id;
-    const chapterId = req.params.chapterId;
-    const { sessionType = 'writing' } = req.body;
-
-    // 检查权限
-    const chapter = db.prepare(`
-      SELECT c.*, n.user_id
-      FROM chapters c
-      JOIN novels n ON n.id = c.novel_id
-      WHERE c.id = ? AND c.novel_id = ? AND n.user_id = ?
-    `).get(chapterId, novelId, userId);
-
-    if (!chapter) {
-      return res.status(404).json({ error: 'Chapter not found' });
-    }
-
-    const { getContextService } = await import('../services/contextService.js');
-    const contextService = getContextService();
-    const result = await contextService.createChapterSession(chapterId, sessionType);
-
-    // 更新章节状态为写作中
-    db.prepare(`
-      UPDATE chapters SET status = 'writing', updated_at = datetime('now')
-      WHERE id = ?
-    `).run(chapterId);
-
-    res.status(201).json({
-      sessionId: result.sessionId,
-      context: result.context,
-      chapter: {
-        id: chapter.id,
-        number: chapter.chapter_number,
-        title: chapter.title,
-        status: 'writing'
-      }
-    });
-  } catch (error) {
-    console.error('Error creating chapter session:', error);
     res.status(500).json({ error: error.message });
   }
 });

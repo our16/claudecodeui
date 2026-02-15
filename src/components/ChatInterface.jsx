@@ -1014,15 +1014,15 @@ const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFile
                       const input = JSON.parse(message.toolInput);
                       return (
                         <div className="my-2">
-                          <div className="bg-gray-900 dark:bg-gray-950 rounded-md px-3 py-2 font-mono text-sm">
-                            <span className="text-green-400">$</span>
-                            <span className="text-gray-100 ml-2">{input.command}</span>
-                          </div>
                           {input.description && (
-                            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400 italic ml-1">
+                            <div className="text-sm text-gray-700 dark:text-gray-300 mb-1">
                               {input.description}
                             </div>
                           )}
+                          <div className="bg-gray-100 dark:bg-gray-800 rounded px-2 py-1 font-mono text-xs text-gray-500 dark:text-gray-400">
+                            <span className="text-green-600 dark:text-green-400">$</span>
+                            <span className="ml-1.5">{input.command}</span>
+                          </div>
                         </div>
                       );
                     } catch (e) {

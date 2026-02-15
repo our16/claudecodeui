@@ -64,6 +64,7 @@ import { validateApiKey, authenticateToken, authenticateWebSocket } from './midd
 import { IS_PLATFORM } from './constants/config.js';
 import novelsRoutes from './routes/novels.js';
 import { initPromptService } from './services/promptService.js';
+import { initContextService } from './services/contextService.js';
 import { queryNovelClaudeSDK, isNovelRequest } from './services/novelClaudeIntegration.js';
 import Database from 'better-sqlite3';
 
@@ -1877,6 +1878,9 @@ async function startServer() {
         // Create an in-memory database for prompt service
         const promptDb = new Database(':memory:');
         initPromptService(promptDb);
+
+        // Initialize context service for chapter session isolation
+        initContextService();
 
         // Check if running in production mode (dist folder exists)
         const distIndexPath = path.join(__dirname, '../dist/index.html');
