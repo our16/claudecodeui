@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { BookOpen, Home, PenTool } from 'lucide-react';
+import { BookOpen, Home, PenTool, Sun, Moon } from 'lucide-react';
 
 // Import Novel Platform Components
 import NovelHome from './components/novel/NovelHome';
@@ -15,7 +15,7 @@ import NovelWorkspace from './components/novel/NovelWorkspace';
 import NovelCreationWizard from './components/novel/NovelCreationWizard';
 
 // Import Contexts
-import { ThemeProvider } from './contexts/ThemeContext';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { WebSocketProvider } from './contexts/WebSocketContext';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -28,6 +28,7 @@ const MAIN_NAV = [
 function NovelApp() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { isDarkMode, toggleDarkMode } = useTheme();
   const [activeNav, setActiveNav] = useState('home');
 
   // Set current navigation based on path
@@ -87,7 +88,18 @@ function NovelApp() {
 
         {/* Right Actions */}
         <div className="flex items-center gap-3">
-          {/* Settings are now accessible from the workspace sidebar */}
+          {/* Theme Toggle */}
+          <button
+            onClick={toggleDarkMode}
+            className="p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            title={isDarkMode ? '切换到白天模式' : '切换到黑夜模式'}
+          >
+            {isDarkMode ? (
+              <Sun className="w-5 h-5" />
+            ) : (
+              <Moon className="w-5 h-5" />
+            )}
+          </button>
         </div>
       </header>
 
