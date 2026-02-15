@@ -1929,6 +1929,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
   const [canAbortSession, setCanAbortSession] = useState(false);
   const [isUserScrolledUp, setIsUserScrolledUp] = useState(false);
   const scrollPositionRef = useRef({ height: 0, top: 0 });
+  const hasScrolledForSessionRef = useRef(null); // Track if we've done initial scroll for current session
   const [showCommandMenu, setShowCommandMenu] = useState(false);
   const [slashCommands, setSlashCommands] = useState([]);
   const [filteredCommands, setFilteredCommands] = useState([]);
@@ -3121,12 +3122,14 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
     }
   }, [selectedSession?.id]);
 
-  // Update chatMessages when convertedMessages changes
+  // Update chatMessages when sessionMessages changes
   useEffect(() => {
     if (sessionMessages.length > 0) {
-      setChatMessages(convertedMessages);
+      // Convert messages directly in the effect to avoid dependency on convertedMessages array
+      // which could cause unnecessary re-renders
+      setChatMessages(convertSessionMessages(sessionMessages));
     }
-  }, [convertedMessages, sessionMessages]);
+  }, [sessionMessages]);
 
   // Notify parent when input focus changes
   useEffect(() => {
@@ -4202,18 +4205,22 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
 
   // Scroll to bottom when messages first load after session switch
   useEffect(() => {
+    const sessionId = selectedSession?.id;
+    // Only scroll once per session, when messages are loaded and not in loading state
     if (scrollContainerRef.current && chatMessages.length > 0 && !isLoadingSessionRef.current) {
-      // Only scroll if we're not in the middle of loading a session
-      // This prevents the "double scroll" effect during session switching
-      // Reset scroll state when switching sessions
-      setIsUserScrolledUp(false);
-      setTimeout(() => {
-        scrollToBottom();
-        // Reset again after scroll completes to ensure handleScroll doesn't override incorrectly
-        setTimeout(() => setIsUserScrolledUp(false), 50);
-      }, 200); // Delay to ensure full rendering
+      // Check if we've already scrolled for this session
+      if (hasScrolledForSessionRef.current !== sessionId) {
+        hasScrolledForSessionRef.current = sessionId;
+        // Reset scroll state when switching sessions
+        setIsUserScrolledUp(false);
+        setTimeout(() => {
+          scrollToBottom();
+          // Reset again after scroll completes to ensure handleScroll doesn't override incorrectly
+          setTimeout(() => setIsUserScrolledUp(false), 50);
+        }, 200); // Delay to ensure full rendering
+      }
     }
-  }, [selectedSession?.id, selectedProject?.name, chatMessages.length]); // Added chatMessages.length to trigger scroll after messages load
+  }, [selectedSession?.id, selectedProject?.name, chatMessages.length]);
 
   // Add scroll event listener to detect user scrolling
   useEffect(() => {
@@ -4843,7 +4850,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center text-gray-500 dark:text-gray-400">
-          <p>Select a project to start chatting with Claude</p>
+          <p>Select a project to start chatting with 墨灵</p>
         </div>
       </div>
     );
@@ -4880,7 +4887,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
                 {/* Claude Code - Default AI Assistant */}
                 <div className="flex flex-col items-center justify-center mb-8">
                   <ClaudeLogo className="w-16 h-16 mb-4" />
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Claude Code</h2>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">墨灵</h2>
                   <p className="text-gray-600 dark:text-gray-400">
                     {t('providerSelection.description')}
                   </p>
@@ -4999,7 +5006,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
                 <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm flex-shrink-0 p-1 bg-transparent">
                   <ClaudeLogo className="w-full h-full" />
                 </div>
-                <div className="text-sm font-medium text-gray-900 dark:text-white">Claude</div>
+                <div className="text-sm font-medium text-gray-900 dark:text-white">墨灵</div>
                 {/* Abort button removed - functionality not yet implemented at backend */}
               </div>
               <div className="w-full text-sm text-gray-500 dark:text-gray-400 pl-3 sm:pl-0">
