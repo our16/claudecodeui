@@ -3113,9 +3113,8 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
           setSessionMessages(messages);
           // convertedMessages will be automatically updated via useMemo
 
-          // Smart scroll behavior: only auto-scroll if user is near bottom
-          const shouldAutoScroll = autoScrollToBottom && isNearBottom();
-          if (shouldAutoScroll) {
+          // Smart scroll behavior: only auto-scroll if user hasn't scrolled up
+          if (autoScrollToBottom && !isUserScrolledUp) {
             setTimeout(() => scrollToBottom(), 200);
           }
           // If user scrolled up, preserve their position (they're reading history)
@@ -3346,12 +3345,12 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
                     }
                     return updated;
                   });
-                  // Auto-scroll during streaming if user is near bottom
-                  requestAnimationFrame(() => {
-                    if (isNearBottom()) {
+                  // Auto-scroll during streaming if user hasn't scrolled up
+                  if (!isUserScrolledUp) {
+                    requestAnimationFrame(() => {
                       scrollToBottom();
-                    }
-                  });
+                    });
+                  }
                 }, 100);
               }
               return;
@@ -3384,12 +3383,12 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
                 }
                 return updated;
               });
-              // Auto-scroll after streaming completes if user is near bottom
-              requestAnimationFrame(() => {
-                if (isNearBottom()) {
+              // Auto-scroll after streaming completes if user hasn't scrolled up
+              if (!isUserScrolledUp) {
+                requestAnimationFrame(() => {
                   scrollToBottom();
-                }
-              });
+                });
+              }
               return;
             }
           }
@@ -3541,12 +3540,12 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
                     }
                     return updated;
                   });
-                  // Auto-scroll during streaming if user is near bottom
-                  requestAnimationFrame(() => {
-                    if (isNearBottom()) {
+                  // Auto-scroll during streaming if user hasn't scrolled up
+                  if (!isUserScrolledUp) {
+                    requestAnimationFrame(() => {
                       scrollToBottom();
-                    }
-                  });
+                    });
+                  }
                 }, 100);
               }
             }
@@ -3726,12 +3725,12 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
                 }
                 return updated;
               });
-              // Auto-scroll after result message if user is near bottom
-              requestAnimationFrame(() => {
-                if (isNearBottom()) {
+              // Auto-scroll after result message if user hasn't scrolled up
+              if (!isUserScrolledUp) {
+                requestAnimationFrame(() => {
                   scrollToBottom();
-                }
-              });
+                });
+              }
             } catch (e) {
               console.warn('Error handling cursor-result message:', e);
             }
@@ -3773,12 +3772,12 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
                     }
                     return updated;
                   });
-                  // Auto-scroll during streaming if user is near bottom
-                  requestAnimationFrame(() => {
-                    if (isNearBottom()) {
+                  // Auto-scroll during streaming if user hasn't scrolled up
+                  if (!isUserScrolledUp) {
+                    requestAnimationFrame(() => {
                       scrollToBottom();
-                    }
-                  });
+                    });
+                  }
                 }, 100);
               }
             }

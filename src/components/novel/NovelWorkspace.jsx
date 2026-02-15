@@ -11,7 +11,7 @@
  * - 章节写作：使用隔离的上下文，只注入必要信息
  */
 
-import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useCallback, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import WebSocketContext from '../../contexts/WebSocketContext';
