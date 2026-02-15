@@ -4209,10 +4209,11 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
       setIsUserScrolledUp(false);
       setTimeout(() => {
         scrollToBottom();
-        // After scrolling, the scroll event handler will naturally set isUserScrolledUp based on position
+        // Reset again after scroll completes to ensure handleScroll doesn't override incorrectly
+        setTimeout(() => setIsUserScrolledUp(false), 50);
       }, 200); // Delay to ensure full rendering
     }
-  }, [selectedSession?.id, selectedProject?.name]); // Only trigger when session/project changes
+  }, [selectedSession?.id, selectedProject?.name, chatMessages.length]); // Added chatMessages.length to trigger scroll after messages load
 
   // Add scroll event listener to detect user scrolling
   useEffect(() => {
