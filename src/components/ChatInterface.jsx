@@ -4518,6 +4518,84 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
     }
   }, [input, isLoading, selectedProject, attachedImages, currentSessionId, selectedSession, permissionMode, onSessionActive, claudeModel, sendMessage, setInput, setAttachedImages, setUploadingImages, setImageErrors, setIsTextareaExpanded, textareaRef, setChatMessages, setIsLoading, setCanAbortSession, setClaudeStatus, setIsUserScrolledUp, scrollToBottom, thinkingMode]);
 
+  // Handle continue writing - auto send message
+  const handleContinueWriting = useCallback(async () => {
+    if (isLoading || !selectedProject) return;
+
+    const continuePrompt = '请继续写下一章，保持与前文一致的叙事风格和人物刻画。';
+
+    const userMessage = {
+      type: 'user',
+      content: continuePrompt,
+      images: [],
+      timestamp: new Date()
+    };
+
+    setChatMessages(prev => [...prev, userMessage]);
+    setIsLoading(true);
+    setCanAbortSession(true);
+    setClaudeStatus({
+      text: 'Processing',
+      tokens: 0,
+      can_interrupt: true
+    });
+
+    setIsUserScrolledUp(false);
+    setTimeout(() => scrollToBottom(), 100);
+
+    const effectiveSessionId = currentSessionId || selectedSession?.id || sessionStorage.getItem('cursorSessionId');
+    const sessionToActivate = effectiveSessionId || `new-session-${Date.now()}`;
+    if (!effectiveSessionId && !selectedSession?.id) {
+      pendingViewSessionRef.current = { sessionId: null, startedAt: Date.now() };
+    }
+    if (onSessionActive) {
+      onSessionActive(sessionToActivate);
+    }
+
+    // Get tools settings
+    const getToolsSettings = () => {
+      try {
+        const saved = localStorage.getItem('claudeToolsSettings');
+        if (saved) {
+          return JSON.parse(saved);
+        }
+      } catch (error) {
+        console.error('Error loading tools settings:', error);
+      }
+      return {
+        allowedTools: [],
+        disallowedTools: [],
+        skipPermissions: false
+      };
+    };
+
+    const toolsSettings = getToolsSettings();
+
+    sendMessage({
+      type: 'claude-command',
+      command: continuePrompt,
+      options: {
+        projectPath: selectedProject.path,
+        cwd: selectedProject.fullPath,
+        sessionId: currentSessionId,
+        resume: !!currentSessionId,
+        toolsSettings: toolsSettings,
+        permissionMode: permissionMode,
+        model: claudeModel,
+        images: []
+      }
+    });
+
+    setInput('');
+    setIsTextareaExpanded(false);
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
+    if (selectedProject) {
+      safeLocalStorage.removeItem(`draft_input_${selectedProject.name}`);
+    }
+  }, [isLoading, selectedProject, currentSessionId, selectedSession, permissionMode, onSessionActive, claudeModel, sendMessage, setInput, setChatMessages, setIsLoading, setCanAbortSession, setClaudeStatus, setIsUserScrolledUp, scrollToBottom, setIsTextareaExpanded, textareaRef]);
+
   const handleGrantToolPermission = useCallback((suggestion) => {
     if (!suggestion) {
       return { success: false };
@@ -5291,6 +5369,20 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
                 </svg>
               </button>
             )}
+
+            {/* Continue next chapter button */}
+            <button
+              type="button"
+              onClick={handleContinueWriting}
+              className="px-3 py-1.5 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-sm font-medium rounded-lg shadow-sm flex items-center gap-2 transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+              title="继续下一章写作"
+              disabled={isLoading || !selectedProject}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+              <span>继续写作</span>
+            </button>
           </div>
         </div>
         

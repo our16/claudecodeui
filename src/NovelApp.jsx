@@ -59,7 +59,7 @@ function NovelApp() {
           >
             <PenTool className="w-7 h-7 text-blue-600 dark:text-blue-400" />
             <h1 className="text-xl font-bold text-gray-800 dark:text-gray-100">
-              Novel Platform
+              墨灵
             </h1>
           </div>
 
