@@ -2914,12 +2914,31 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
     }
   }, []);
 
-  // Check if user is near the bottom of the scroll container
+  // Check if the latest message is visible in the viewport
+  // If visible, we consider user is at bottom and can auto-scroll
+  // If not visible, user is viewing history messages
   const isNearBottom = useCallback(() => {
     if (!scrollContainerRef.current) return false;
-    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
-    // Consider "near bottom" if within 50px of the bottom
-    return scrollHeight - scrollTop - clientHeight < 50;
+    const container = scrollContainerRef.current;
+    const { scrollTop, scrollHeight, clientHeight } = container;
+
+    // Method 1: Check if last message element is visible
+    const messages = container.querySelectorAll('[data-message-index]');
+    if (messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      const containerRect = container.getBoundingClientRect();
+      const lastMessageRect = lastMessage.getBoundingClientRect();
+
+      // Check if last message bottom is within or below the container viewport
+      // Allow some tolerance (100px) for partial visibility
+      const isLastMessageVisible = lastMessageRect.bottom <= containerRect.bottom + 100 &&
+                                    lastMessageRect.top >= containerRect.top - clientHeight;
+      if (isLastMessageVisible) return true;
+    }
+
+    // Method 2: Fallback - check if scrolled near bottom (within 200px)
+    // This handles cases where message elements aren't available yet
+    return scrollHeight - scrollTop - clientHeight < 200;
   }, []);
 
   const loadOlderMessages = useCallback(async (container) => {
