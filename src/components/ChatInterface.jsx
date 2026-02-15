@@ -1892,7 +1892,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
   const [messagesOffset, setMessagesOffset] = useState(0);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [totalMessages, setTotalMessages] = useState(0);
-  const MESSAGES_PER_PAGE = 20;
+  const MESSAGES_PER_PAGE = 200; // Increased from 20 to load more history at once
   const [isSystemSessionChange, setIsSystemSessionChange] = useState(false);
   const [permissionMode, setPermissionMode] = useState('default');
   // In-memory queue of tool permission prompts for the current UI view.
@@ -1944,7 +1944,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
   const [tokenBudget, setTokenBudget] = useState(null);
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(-1);
   const [slashPosition, setSlashPosition] = useState(-1);
-  const [visibleMessageCount, setVisibleMessageCount] = useState(100);
+  const [visibleMessageCount, setVisibleMessageCount] = useState(1000); // Increased from 100 to show more history
   const [claudeStatus, setClaudeStatus] = useState(null);
   const [thinkingMode, setThinkingMode] = useState('none');
   const [claudeModel, setClaudeModel] = useState(() => {
