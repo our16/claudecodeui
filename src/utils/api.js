@@ -48,11 +48,14 @@ export const api = {
   projects: () => authenticatedFetch('/api/projects'),
   sessions: (projectName, limit = 5, offset = 0) => 
     authenticatedFetch(`/api/projects/${projectName}/sessions?limit=${limit}&offset=${offset}`),
-  sessionMessages: (projectName, sessionId, limit = null, offset = 0, provider = 'claude') => {
+  sessionMessages: (projectName, sessionId, limit = null, offset = 0, provider = 'claude', noCache = false) => {
     const params = new URLSearchParams();
     if (limit !== null) {
       params.append('limit', limit);
       params.append('offset', offset);
+    }
+    if (noCache) {
+      params.append('noCache', 'true');
     }
     const queryString = params.toString();
 

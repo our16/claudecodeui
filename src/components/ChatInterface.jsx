@@ -2350,7 +2350,8 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
 
     try {
       const currentOffset = loadMore ? messagesOffset : 0;
-      const response = await api.sessionMessages(projectName, sessionId, MESSAGES_PER_PAGE, currentOffset, provider);
+      // Use noCache=true for initial load to get fresh data from JSONL files
+      const response = await api.sessionMessages(projectName, sessionId, MESSAGES_PER_PAGE, currentOffset, provider, isInitialLoad);
       if (!response.ok) {
         throw new Error('Failed to load session messages');
       }

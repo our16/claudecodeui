@@ -466,14 +466,15 @@ app.get('/api/projects/:projectName/sessions', authenticateToken, async (req, re
 app.get('/api/projects/:projectName/sessions/:sessionId/messages', authenticateToken, async (req, res) => {
     try {
         const { projectName, sessionId } = req.params;
-        const { limit, offset } = req.query;
-        
+        const { limit, offset, noCache } = req.query;
+
         // Parse limit and offset if provided
         const parsedLimit = limit ? parseInt(limit, 10) : null;
         const parsedOffset = offset ? parseInt(offset, 10) : 0;
-        
-        const result = await getSessionMessages(projectName, sessionId, parsedLimit, parsedOffset);
-        
+        const shouldNoCache = noCache === 'true' || noCache === '1';
+
+        const result = await getSessionMessages(projectName, sessionId, parsedLimit, parsedOffset, shouldNoCache);
+
         // Handle both old and new response formats
         if (Array.isArray(result)) {
             // Backward compatibility: no pagination parameters were provided

@@ -1036,34 +1036,36 @@ async function getOrBuildSessionIndex(projectName) {
 }
 
 // Get messages for a specific session with pagination support
-async function getSessionMessages(projectName, sessionId, limit = null, offset = 0) {
+async function getSessionMessages(projectName, sessionId, limit = null, offset = 0, noCache = false) {
   const cacheKey = `${projectName}:${sessionId}`;
 
-  // Check cache first
-  const cached = getCachedSessionMessages(cacheKey);
-  if (cached) {
-    console.log(`Cache hit for session ${sessionId}`);
-    const messages = cached.messages;
+  // Check cache first (unless noCache is true)
+  if (!noCache) {
+    const cached = getCachedSessionMessages(cacheKey);
+    if (cached) {
+      console.log(`Cache hit for session ${sessionId}`);
+      const messages = cached.messages;
 
-    // Apply pagination to cached data
-    const total = messages.length;
+      // Apply pagination to cached data
+      const total = messages.length;
 
-    if (limit === null) {
-      return messages;
+      if (limit === null) {
+        return messages;
+      }
+
+      const startIndex = Math.max(0, total - offset - limit);
+      const endIndex = total - offset;
+      const paginatedMessages = messages.slice(startIndex, endIndex);
+      const hasMore = startIndex > 0;
+
+      return {
+        messages: paginatedMessages,
+        total,
+        hasMore,
+        offset,
+        limit
+      };
     }
-
-    const startIndex = Math.max(0, total - offset - limit);
-    const endIndex = total - offset;
-    const paginatedMessages = messages.slice(startIndex, endIndex);
-    const hasMore = startIndex > 0;
-
-    return {
-      messages: paginatedMessages,
-      total,
-      hasMore,
-      offset,
-      limit
-    };
   }
 
   const projectDir = path.join(os.homedir(), '.claude', 'projects', projectName);
