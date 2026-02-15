@@ -1930,6 +1930,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
   const [isUserScrolledUp, setIsUserScrolledUp] = useState(false);
   const scrollPositionRef = useRef({ height: 0, top: 0 });
   const hasScrolledForSessionRef = useRef(null); // Track if we've done initial scroll for current session
+  const isInitialScrollingRef = useRef(false); // Track if we're doing initial scroll (to skip scroll event handling)
   const [showCommandMenu, setShowCommandMenu] = useState(false);
   const [slashCommands, setSlashCommands] = useState([]);
   const [filteredCommands, setFilteredCommands] = useState([]);
@@ -2955,11 +2956,16 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
 
   // Handle scroll events to detect when user manually scrolls up and load more messages
   const handleScroll = useCallback(async () => {
+    // Skip scroll event handling during initial scroll
+    if (isInitialScrollingRef.current) {
+      return;
+    }
+
     if (scrollContainerRef.current) {
       const container = scrollContainerRef.current;
       const nearBottom = isNearBottom();
       setIsUserScrolledUp(!nearBottom);
-      
+
       // Check if we should load more messages (scrolled near top)
       const scrolledNearTop = container.scrollTop < 100;
       if (!scrolledNearTop) {
@@ -3134,8 +3140,24 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
       // Convert messages directly in the effect to avoid dependency on convertedMessages array
       // which could cause unnecessary re-renders
       setChatMessages(convertSessionMessages(sessionMessages));
+
+      // Mark that we're doing initial scroll (to prevent scroll event handler from interfering)
+      isInitialScrollingRef.current = true;
+
+      // Scroll to bottom after messages are loaded
+      // Use multiple attempts to ensure DOM is updated
+      requestAnimationFrame(() => {
+        scrollToBottom();
+        // Fallback scroll after a short delay
+        setTimeout(() => {
+          scrollToBottom();
+          setIsUserScrolledUp(false);
+          // Allow scroll event handling after initial scroll is complete
+          isInitialScrollingRef.current = false;
+        }, 150);
+      });
     }
-  }, [sessionMessages]);
+  }, [sessionMessages, scrollToBottom]);
 
   // Notify parent when input focus changes
   useEffect(() => {
@@ -4209,24 +4231,21 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
     }
   }, [chatMessages.length, isUserScrolledUp, scrollToBottom, autoScrollToBottom]);
 
-  // Scroll to bottom when messages first load after session switch
+  // Reset scroll state when session changes
   useEffect(() => {
     const sessionId = selectedSession?.id;
-    // Only scroll once per session, when messages are loaded and not in loading state
-    if (scrollContainerRef.current && chatMessages.length > 0 && !isLoadingSessionRef.current) {
-      // Check if we've already scrolled for this session
-      if (hasScrolledForSessionRef.current !== sessionId) {
-        hasScrolledForSessionRef.current = sessionId;
-        // Reset scroll state when switching sessions
-        setIsUserScrolledUp(false);
-        setTimeout(() => {
-          scrollToBottom();
-          // Reset again after scroll completes to ensure handleScroll doesn't override incorrectly
-          setTimeout(() => setIsUserScrolledUp(false), 50);
-        }, 200); // Delay to ensure full rendering
-      }
+    if (sessionId && hasScrolledForSessionRef.current !== sessionId) {
+      hasScrolledForSessionRef.current = sessionId;
+      // Reset scroll state when switching sessions
+      setIsUserScrolledUp(false);
+      // Mark that we're starting initial scroll
+      isInitialScrollingRef.current = true;
+      // Clear the flag after a delay
+      setTimeout(() => {
+        isInitialScrollingRef.current = false;
+      }, 300);
     }
-  }, [selectedSession?.id, selectedProject?.name, chatMessages.length]);
+  }, [selectedSession?.id]);
 
   // Add scroll event listener to detect user scrolling
   useEffect(() => {
