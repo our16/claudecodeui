@@ -493,7 +493,7 @@ const markdownComponents = {
 };
 
 // Memoized message component to prevent unnecessary re-renders
-const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFileOpen, onShowSettings, onGrantToolPermission, autoExpandTools, showRawParameters, showThinking, selectedProject }) => {
+const MessageComponent = memo(({ message, index, prevMessage, bashStepIndex, createDiff, onFileOpen, onShowSettings, onGrantToolPermission, autoExpandTools, showRawParameters, showThinking, selectedProject }) => {
   const { t } = useTranslation('chat');
   const isGrouped = prevMessage && prevMessage.type === message.type &&
                    ((prevMessage.type === 'assistant') ||
@@ -602,6 +602,8 @@ const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFile
               (() => {
                 // Minimize Grep and Glob tools since they happen frequently
                 const isSearchTool = ['Grep', 'Glob'].includes(message.toolName);
+                // Minimize Bash tool to show as step list
+                const isBashTool = message.toolName === 'Bash';
 
                 if (isSearchTool) {
                   return (
@@ -640,6 +642,36 @@ const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFile
                             </a>
                           )}
                         </div>
+                      </div>
+                    </>
+                  );
+                }
+
+                // Bash tool - minimal step-like display
+                if (isBashTool) {
+                  return (
+                    <>
+                      <div className="group relative pl-6 py-0.5 my-0.5">
+                        {message.toolInput && (() => {
+                          try {
+                            const input = JSON.parse(message.toolInput);
+                            return (
+                              <div className="flex flex-col">
+                                <div className="text-sm text-gray-700 dark:text-gray-300">
+                                  <span className="text-emerald-600 dark:text-emerald-400 font-medium mr-1">{bashStepIndex}、</span>
+                                  {input.description || input.command}
+                                </div>
+                                {input.description && (
+                                  <div className="text-xs font-mono text-gray-400 dark:text-gray-500 ml-5">
+                                    $ {input.command}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          } catch (e) {
+                            return null;
+                          }
+                        })()}
                       </div>
                     </>
                   );
@@ -1007,29 +1039,7 @@ const MessageComponent = memo(({ message, index, prevMessage, createDiff, onFile
                       // Fall back to regular display
                     }
                   }
-                  
-                  // Special handling for Bash tool
-                  if (message.toolName === 'Bash') {
-                    try {
-                      const input = JSON.parse(message.toolInput);
-                      return (
-                        <div className="my-2">
-                          {input.description && (
-                            <div className="text-sm text-gray-700 dark:text-gray-300 mb-1">
-                              {input.description}
-                            </div>
-                          )}
-                          <div className="bg-gray-100 dark:bg-gray-800 rounded px-2 py-1 font-mono text-xs text-gray-500 dark:text-gray-400">
-                            <span className="text-green-600 dark:text-green-400">$</span>
-                            <span className="ml-1.5">{input.command}</span>
-                          </div>
-                        </div>
-                      );
-                    } catch (e) {
-                      // Fall back to regular display
-                    }
-                  }
-                  
+
                   // Special handling for Read tool
                   if (message.toolName === 'Read') {
                     try {
@@ -4930,26 +4940,41 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
               </div>
             )}
             
-            {visibleMessages.map((message, index) => {
-              const prevMessage = index > 0 ? visibleMessages[index - 1] : null;
-              
-              return (
-                <MessageComponent
-                  key={index}
-                  message={message}
-                  index={index}
-                  prevMessage={prevMessage}
-                  createDiff={createDiff}
-                  onFileOpen={onFileOpen}
-                  onShowSettings={onShowSettings}
-                  onGrantToolPermission={handleGrantToolPermission}
-                  autoExpandTools={autoExpandTools}
-                  showRawParameters={showRawParameters}
-                  showThinking={showThinking}
-                  selectedProject={selectedProject}
+            {(() => {
+              // Pre-calculate Bash step indices (reset on each assistant message)
+              let bashStepCounter = 0;
+              return visibleMessages.map((message, index) => {
+                const prevMessage = index > 0 ? visibleMessages[index - 1] : null;
+
+                // Reset counter when a new assistant text message appears (not tool use)
+                if (message.type === 'assistant' && !message.isToolUse) {
+                  bashStepCounter = 0;
+                }
+
+                // Calculate bash step index for Bash tool messages
+                const bashStepIndex = message.isToolUse && message.toolName === 'Bash'
+                  ? ++bashStepCounter
+                  : null;
+
+                return (
+                  <MessageComponent
+                    key={index}
+                    message={message}
+                    index={index}
+                    prevMessage={prevMessage}
+                    bashStepIndex={bashStepIndex}
+                    createDiff={createDiff}
+                    onFileOpen={onFileOpen}
+                    onShowSettings={onShowSettings}
+                    onGrantToolPermission={handleGrantToolPermission}
+                    autoExpandTools={autoExpandTools}
+                    showRawParameters={showRawParameters}
+                    showThinking={showThinking}
+                    selectedProject={selectedProject}
                   />
-              );
-            })}
+                );
+              });
+            })()}
           </>
         )}
         
