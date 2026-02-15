@@ -47,6 +47,7 @@ export default function NovelInfoSidebar({ currentNovel, onStateFileSelect }) {
   const [selectedChapter, setSelectedChapter] = useState(null);
   const [chapterContentModal, setChapterContentModal] = useState({ show: false, chapter: null, content: '', loading: false });
   const [chapterOutlines, setChapterOutlines] = useState({}); // 缓存已加载的大纲内容
+  const [loadingOutlines, setLoadingOutlines] = useState({}); // 正在加载大纲的章节
   const intervalRef = useRef(null);
 
   // 返回项目列表
@@ -83,10 +84,7 @@ export default function NovelInfoSidebar({ currentNovel, onStateFileSelect }) {
       const volumesData = await volumesResponse.json();
       if (volumesData.volumes) {
         setVolumes(volumesData.volumes);
-        // 默认展开第一个卷
-        if (volumesData.volumes.length > 0 && !isRefresh) {
-          setExpandedVolumes({ [volumesData.volumes[0].name]: true });
-        }
+        // 所有卷默认收起
       }
 
       // 加载状态文件列表（仅在首次加载时）
@@ -230,7 +228,9 @@ export default function NovelInfoSidebar({ currentNovel, onStateFileSelect }) {
       // 展开，按需加载大纲内容
       setSelectedChapter(chapterKey);
       if (chapter.outlineCreated && !chapterOutlines[chapterKey]) {
+        setLoadingOutlines(prev => ({ ...prev, [chapterKey]: true }));
         await loadChapterOutline(volumeName, chapter.number);
+        setLoadingOutlines(prev => ({ ...prev, [chapterKey]: false }));
       }
     }
   };
@@ -494,15 +494,30 @@ export default function NovelInfoSidebar({ currentNovel, onStateFileSelect }) {
                               </div>
 
                               {/* 展开的大纲详情 */}
-                              {isSelected && (() => {
-                                const chapterKey = `${volume.name}-${chapter.number}`;
-                                const outlineContent = chapterOutlines[chapterKey];
-                                return chapter.outlineCreated && (outlineContent || chapter.outline);
-                              })() && (
+                              {isSelected && (
                                 <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700">
                                   {(() => {
                                     const chapterKey = `${volume.name}-${chapter.number}`;
+                                    const isLoading = loadingOutlines[chapterKey];
                                     const outlineContent = chapterOutlines[chapterKey] || chapter.outline;
+
+                                    // 显示加载状态
+                                    if (isLoading) {
+                                      return (
+                                        <div className="flex items-center justify-center py-3">
+                                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                                          <span className="ml-2 text-xs text-gray-500">加载大纲...</span>
+                                        </div>
+                                      );
+                                    }
+
+                                    // 没有大纲或未创建
+                                    if (!chapter.outlineCreated || !outlineContent) {
+                                      return (
+                                        <p className="text-xs text-gray-500 text-center py-2">暂无大纲</p>
+                                      );
+                                    }
+
                                     const summary = getOutlineSummary(outlineContent);
                                     if (!summary) return null;
 

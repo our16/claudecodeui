@@ -2995,6 +2995,9 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
         // Mark that we're loading a session to prevent multiple scroll triggers
         isLoadingSessionRef.current = true;
 
+        // Immediately show loading state to prevent welcome screen flash
+        setIsLoadingSessionMessages(true);
+
         // Only reset state if the session ID actually changed (not initial load)
         const sessionChanged = currentSessionId !== null && currentSessionId !== selectedSession.id;
 
@@ -3056,6 +3059,8 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
         } else {
           // Reset the flag after handling system session change
           setIsSystemSessionChange(false);
+          // Reset loading state since we're not loading messages
+          setIsLoadingSessionMessages(false);
         }
       } else {
         // New session view (no selected session) - always reset UI state
@@ -3067,6 +3072,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
           setClaudeStatus(null);
           setCanAbortSession(false);
           setIsLoading(false);
+          setIsLoadingSessionMessages(false);
         }
         setCurrentSessionId(null);
         sessionStorage.removeItem('cursorSessionId');
