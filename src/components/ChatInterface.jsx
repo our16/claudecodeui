@@ -2922,23 +2922,27 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
     const container = scrollContainerRef.current;
     const { scrollTop, scrollHeight, clientHeight } = container;
 
-    // Method 1: Check if last message element is visible
-    const messages = container.querySelectorAll('[data-message-index]');
-    if (messages.length > 0) {
-      const lastMessage = messages[messages.length - 1];
-      const containerRect = container.getBoundingClientRect();
-      const lastMessageRect = lastMessage.getBoundingClientRect();
+    // Calculate distance from bottom
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
 
-      // Check if last message bottom is within or below the container viewport
-      // Allow some tolerance (100px) for partial visibility
-      const isLastMessageVisible = lastMessageRect.bottom <= containerRect.bottom + 100 &&
-                                    lastMessageRect.top >= containerRect.top - clientHeight;
-      if (isLastMessageVisible) return true;
+    // If very close to bottom (within 100px), definitely at bottom
+    if (distanceFromBottom < 100) return true;
+
+    // Check if last child element is visible in viewport
+    // This handles the case where user scrolled up but last message is still visible
+    const children = container.children;
+    if (children.length > 0) {
+      const lastChild = children[children.length - 1];
+      const containerRect = container.getBoundingClientRect();
+      const lastChildRect = lastChild.getBoundingClientRect();
+
+      // Check if last child's bottom is visible or just below the viewport
+      // (within 150px tolerance to account for input area)
+      const isLastChildVisible = lastChildRect.top < containerRect.bottom + 150;
+      return isLastChildVisible;
     }
 
-    // Method 2: Fallback - check if scrolled near bottom (within 200px)
-    // This handles cases where message elements aren't available yet
-    return scrollHeight - scrollTop - clientHeight < 200;
+    return false;
   }, []);
 
   const loadOlderMessages = useCallback(async (container) => {
@@ -2975,16 +2979,19 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
 
   // Handle scroll events to detect when user manually scrolls up and load more messages
   const handleScroll = useCallback(async () => {
-    // Skip scroll event handling if this was triggered by a programmatic scroll
-    // within the last 150ms (enough time for scroll to settle)
-    if (Date.now() - lastProgrammaticScrollRef.current < 150) {
-      return;
-    }
-
     if (scrollContainerRef.current) {
       const container = scrollContainerRef.current;
       const nearBottom = isNearBottom();
+
+      // Always update isUserScrolledUp based on current position
+      // This ensures user can "unlock" auto-scroll by scrolling back to bottom
       setIsUserScrolledUp(!nearBottom);
+
+      // Skip loading more messages if this was triggered by a programmatic scroll
+      // within the last 100ms
+      if (Date.now() - lastProgrammaticScrollRef.current < 100) {
+        return;
+      }
 
       // Check if we should load more messages (scrolled near top)
       const scrolledNearTop = container.scrollTop < 100;
