@@ -1,0 +1,14 @@
+# 写作游标状态
+# 记录当前写作位置和状态
+
+# 当前阶段: idle | planning | writing | reviewing
+phase=idle
+
+# 当前章节编号 (0表示未开始)
+current_chapter=0
+
+# 当前卷编号
+current_volume=1
+
+# 上次更新时间
+last_update={{INIT_TIME}}

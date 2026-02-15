@@ -6,6 +6,7 @@
 
 import express from 'express';
 import { getPromptService } from '../services/promptService.js';
+import { copyNovelTemplate } from '../services/templateService.js';
 import { db } from '../database/db.js';
 
 const router = express.Router();
@@ -86,9 +87,10 @@ router.get('/', async (req, res) => {
  * 创建新小说项目
  * POST /api/novels
  *
- * Body: { name, displayName?, genre?, description?, projectPath }
+ * Body: { name, displayName?, genre?, description?, projectPath, structure? }
  *
  * 注意：projectPath 为必填项，不自动创建默认目录
+ * structure: { totalChapters, totalVolumes, chaptersPerVolume, writingStyle, dailyTarget, chapterTarget }
  */
 router.post('/', async (req, res) => {
   try {
@@ -99,7 +101,8 @@ router.post('/', async (req, res) => {
       displayName = name,
       genre = '',
       description = '',
-      projectPath
+      projectPath,
+      structure = {}
     } = req.body;
 
     if (!name || !name.trim()) {
@@ -126,6 +129,32 @@ router.post('/', async (req, res) => {
       await fs.access(projectPath);
     } catch {
       return res.status(400).json({ error: `Working directory does not exist: ${projectPath}` });
+    }
+
+    // 复制模板目录到工作目录
+    const templateVars = {
+      NOVEL_NAME: name,
+      NOVEL_DISPLAY_NAME: displayName || name,
+      NOVEL_GENRE: genre || '',
+      NOVEL_DESCRIPTION: description || '',
+      WRITING_STYLE: structure.writingStyle || 'balanced',
+      DAILY_TARGET: structure.dailyTarget || 3000,
+      CHAPTER_TARGET: structure.chapterTarget || 3000,
+      TOTAL_CHAPTERS: structure.totalChapters || 100,
+      TOTAL_VOLUMES: structure.totalVolumes || 10,
+      CHAPTERS_PER_VOLUME: structure.chaptersPerVolume || 10
+    };
+
+    try {
+      const copyResult = await copyNovelTemplate(projectPath, templateVars);
+      if (copyResult.skipped) {
+        console.log(`Template copy skipped for ${projectPath}: ${copyResult.reason}`);
+      } else {
+        console.log(`Template copied successfully to ${projectPath}`);
+      }
+    } catch (templateError) {
+      console.warn(`Failed to copy template to ${projectPath}:`, templateError.message);
+      // 不阻断创建流程，模板复制失败不影响项目创建
     }
 
     // 创建小说项目

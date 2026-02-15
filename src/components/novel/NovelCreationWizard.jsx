@@ -86,7 +86,16 @@ export default function NovelCreationWizard() {
           displayName: formData.displayName,
           genre: formData.genre,
           description: formData.description,
-          projectPath: formData.projectPath  // 工作目录（必填）
+          projectPath: formData.projectPath,  // 工作目录（必填）
+          // 结构配置，用于模板初始化
+          structure: {
+            totalChapters: formData.totalChapters,
+            totalVolumes: formData.volumeCount,
+            chaptersPerVolume: Math.ceil(formData.totalChapters / formData.volumeCount),
+            writingStyle: formData.aiStyle,
+            dailyTarget: formData.dailyTarget,
+            chapterTarget: 3000  // 每章目标字数
+          }
         })
       });
 

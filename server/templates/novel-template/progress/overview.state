@@ -1,0 +1,21 @@
+# 进度概览
+# 记录小说创作的整体进度
+
+# 总章节数
+total_chapters: {{TOTAL_CHAPTERS}}
+
+# 已完成章节数
+completed_chapters: 0
+
+# 已创作字数
+total_words: 0
+
+# 创作天数
+writing_days: 0
+
+# 上次创作日期
+last_writing_date: {{INIT_DATE}}
+
+# 进度里程碑
+milestones:
+  - "项目创建: {{INIT_TIME}}"

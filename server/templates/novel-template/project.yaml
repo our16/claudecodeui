@@ -1,0 +1,29 @@
+# 小说项目配置文件
+# 由墨灵 AI 写作助手自动生成
+
+# 基本信息
+name: "{{NOVEL_NAME}}"
+display_name: "{{NOVEL_DISPLAY_NAME}}"
+genre: "{{NOVEL_GENRE}}"
+description: "{{NOVEL_DESCRIPTION}}"
+
+# 初始化状态
+inited: true
+init_time: "{{INIT_TIME}}"
+
+# 写作配置
+writing:
+  style: "{{WRITING_STYLE}}"  # 写作风格
+  daily_target: {{DAILY_TARGET}}  # 每日字数目标
+  chapter_target: {{CHAPTER_TARGET}}  # 每章字数目标
+
+# 结构配置
+structure:
+  total_chapters: {{TOTAL_CHAPTERS}}  # 总章节数
+  total_volumes: {{TOTAL_VOLUMES}}  # 总卷数
+  chapters_per_volume: {{CHAPTERS_PER_VOLUME}}  # 每卷章节数
+
+# Claude Code 配置
+claude:
+  model: "claude-sonnet-4-20250514"  # 使用的模型
+  prompt_version: "simplified"  # 系统提示词版本: full, simplified, focused
