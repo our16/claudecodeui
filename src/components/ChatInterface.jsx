@@ -493,7 +493,7 @@ const markdownComponents = {
 };
 
 // Memoized message component to prevent unnecessary re-renders
-const MessageComponent = memo(({ message, index, prevMessage, bashStepIndex, createDiff, onFileOpen, onShowSettings, onGrantToolPermission, autoExpandTools, showRawParameters, showThinking, selectedProject }) => {
+const MessageComponent = memo(({ message, index, prevMessage, bashStepIndex, createDiff, onFileOpen, onShowSettings, onGrantToolPermission, autoExpandTools, showRawParameters, showThinking, showBashCommands, selectedProject }) => {
   const { t } = useTranslation('chat');
   const isGrouped = prevMessage && prevMessage.type === message.type &&
                    ((prevMessage.type === 'assistant') ||
@@ -651,17 +651,18 @@ const MessageComponent = memo(({ message, index, prevMessage, bashStepIndex, cre
                 if (isBashTool) {
                   return (
                     <>
-                      <div className="group relative pl-6 py-0.5 my-0.5">
+                      <div className="group relative pl-6">
                         {message.toolInput && (() => {
                           try {
                             const input = JSON.parse(message.toolInput);
                             return (
                               <div className="flex flex-col">
-                                <div className="text-sm text-gray-700 dark:text-gray-300">
-                                  <span className="text-emerald-600 dark:text-emerald-400 font-medium mr-1">{bashStepIndex}、</span>
-                                  {input.description || input.command}
+                                <div className="text-sm text-gray-700 dark:text-gray-300 flex items-baseline gap-2">
+                                  <span className="text-emerald-600 dark:text-emerald-400 font-medium">{bashStepIndex}、</span>
+                                  <span>{input.description || input.command}</span>
+                                  <span className="text-xs text-gray-400 dark:text-gray-500">{new Date(message.timestamp).toLocaleTimeString()}</span>
                                 </div>
-                                {input.description && (
+                                {showBashCommands && input.description && (
                                   <div className="text-xs font-mono text-gray-400 dark:text-gray-500 ml-5">
                                     $ {input.command}
                                   </div>
@@ -1807,10 +1808,13 @@ const MessageComponent = memo(({ message, index, prevMessage, bashStepIndex, cre
                 })()}
               </div>
             )}
-            
-            <div className={`text-xs text-gray-500 dark:text-gray-400 mt-1 ${isGrouped ? 'opacity-0 group-hover:opacity-100' : ''}`}>
-              {new Date(message.timestamp).toLocaleTimeString()}
-            </div>
+
+            {/* Timestamp - hidden for Bash tools as it's shown inline */}
+            {!(message.isToolUse && message.toolName === 'Bash') && (
+              <div className={`text-xs text-gray-500 dark:text-gray-400 mt-1 ${isGrouped ? 'opacity-0 group-hover:opacity-100' : ''}`}>
+                {new Date(message.timestamp).toLocaleTimeString()}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1928,6 +1932,13 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
   const [showCommandMenu, setShowCommandMenu] = useState(false);
   const [slashCommands, setSlashCommands] = useState([]);
   const [filteredCommands, setFilteredCommands] = useState([]);
+  // Bash command display mode (persisted to localStorage)
+  const [showBashCommands, setShowBashCommands] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('showBashCommands') === 'true';
+    }
+    return false;
+  });
   const [commandQuery, setCommandQuery] = useState('');
   const [isTextareaExpanded, setIsTextareaExpanded] = useState(false);
   const [tokenBudget, setTokenBudget] = useState(null);
@@ -4970,6 +4981,7 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
                     autoExpandTools={autoExpandTools}
                     showRawParameters={showRawParameters}
                     showThinking={showThinking}
+                    showBashCommands={showBashCommands}
                     selectedProject={selectedProject}
                   />
                 );
@@ -5159,6 +5171,26 @@ function ChatInterface({ selectedProject, selectedSession, ws, sendMessage, late
               used={tokenBudget?.used || 0}
               total={tokenBudget?.total || parseInt(import.meta.env.VITE_CONTEXT_WINDOW) || 160000}
             />
+
+            {/* Toggle bash commands visibility */}
+            <button
+              type="button"
+              onClick={() => {
+                const newValue = !showBashCommands;
+                setShowBashCommands(newValue);
+                localStorage.setItem('showBashCommands', String(newValue));
+              }}
+              className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:ring-offset-gray-800 ${
+                showBashCommands
+                  ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
+                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+              }`}
+              title={showBashCommands ? '隐藏命令详情' : '显示命令详情'}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </button>
 
             {/* Slash commands button */}
             <button
